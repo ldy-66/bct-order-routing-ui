@@ -35,6 +35,9 @@ test("server-renders the OMS configuration page without a login gate", async () 
   assert.match(html, /批量导入/);
   assert.match(html, /下载导入模板/);
   assert.match(html, /客户配置/);
+  assert.match(html, /批量导入客户配置/);
+  assert.match(html, /下载客户配置模板/);
+  assert.match(html, /批量删除配置/);
   assert.match(html, /交易方向/);
   assert.match(html, /开平标志/);
   assert.doesNotMatch(html, /登录|login|password/i);
@@ -49,5 +52,8 @@ test("keeps transaction direction and offset as independent dropdown fields", as
   assert.match(page, /className="offset-select"/);
   assert.match(page, /initialConfigTemplates/);
   assert.match(page, /批量导入报单排序模板/);
+  assert.match(page, /批量导入客户报单排序配置/);
+  assert.match(page, /selectedClientRules/);
   await access(new URL("../public/报单排序模板批量导入模板.xlsx", import.meta.url));
+  await access(new URL("../public/客户报单排序模板批量导入模板.xlsx", import.meta.url));
 });

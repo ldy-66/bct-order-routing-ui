@@ -33,6 +33,12 @@ type ImportTemplate = OrderTemplate & {
   mode: "新增" | "覆盖";
 };
 
+type ClientImportPreview = {
+  account: string;
+  mode: "新增" | "覆盖";
+  rules: Rule[];
+};
+
 const initialTemplates: OrderTemplate[] = [
   { name: "默认模板", note: "CMSI_SC999", details: [{ order: 1, channel: "Mock" }, { order: 2, channel: "QFII" }, { order: 3, channel: "QFII2" }, { order: 4, channel: "O32" }] },
   { name: "test1", note: "QFII", details: [{ order: 1, channel: "QFII" }] },
@@ -97,6 +103,8 @@ const emptyRule = (): Rule => ({
   offset: "默认",
   template: "默认模板",
 });
+const clientRuleKey = (account: string, id: number) => `${account}::${id}`;
+const splitImportValues = (value: string) => value.split(/[,，、|;；]/).map((item) => item.trim()).filter(Boolean);
 
 function Chevron({ open }: { open: boolean }) {
   return <span className="square-toggle">{open ? "−" : "+"}</span>;
@@ -125,6 +133,9 @@ type RuleTableProps = {
   onCancel: () => void;
   onDelete: (id: number) => void;
   onAdd: () => void;
+  selectedIds?: number[];
+  onToggleSelect?: (id: number) => void;
+  onToggleAll?: () => void;
 };
 
 function RuleTable({
@@ -139,11 +150,25 @@ function RuleTable({
   onCancel,
   onDelete,
   onAdd,
+  selectedIds,
+  onToggleSelect,
+  onToggleAll,
 }: RuleTableProps) {
+  const selectable = Boolean(selectedIds && onToggleSelect && onToggleAll);
   return (
     <div className="rules-wrap">
-      <table className="data-table rules-table">
+      <table className={`data-table rules-table${selectable ? " selectable-rules-table" : ""}`}>
         <thead><tr>
+          {selectable && (
+            <th className="rule-select-col">
+              <input
+                type="checkbox"
+                aria-label={`${scope}全选配置`}
+                checked={rules.length > 0 && selectedIds?.length === rules.length}
+                onChange={onToggleAll}
+              />
+            </th>
+          )}
           <th>业务类型</th><th>合约类型</th><th>交易所</th><th>资产品种</th>
           <th className="direction-head">交易方向<span>买 / 卖</span></th>
           <th className="offset-head">开平标志<span>默认 / 开仓 / 平仓</span></th>
@@ -155,6 +180,16 @@ function RuleTable({
             const shown = isEditing ? draft : rule;
             return (
               <tr className={isEditing ? "editing-row" : ""} key={rule.id}>
+                {selectable && (
+                  <td className="rule-select-cell">
+                    <input
+                      type="checkbox"
+                      aria-label={`${scope}选择配置${rule.id}`}
+                      checked={selectedIds?.includes(rule.id)}
+                      onChange={() => onToggleSelect?.(rule.id)}
+                    />
+                  </td>
+                )}
                 <td>{isEditing ? (
                   <select value={shown.business} onChange={(event) => onDraft({ ...draft, business: event.target.value })} aria-label={`${scope}业务类型`}>
                     <option>普通交易</option><option>融资交易</option><option>融券交易</option><option>对冲互换</option>
@@ -224,6 +259,12 @@ export default function Home() {
   const [draggedDetail, setDraggedDetail] = useState<{ template: string; order: number } | null>(null);
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
+  const [selectedClientRules, setSelectedClientRules] = useState<string[]>([]);
+  const [showClientImport, setShowClientImport] = useState(false);
+  const [showClientDeleteConfirm, setShowClientDeleteConfirm] = useState(false);
+  const [clientImportFileName, setClientImportFileName] = useState("");
+  const [clientImportPreview, setClientImportPreview] = useState<ClientImportPreview[]>([]);
+  const [clientImportErrors, setClientImportErrors] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [importFileName, setImportFileName] = useState("");
@@ -361,6 +402,150 @@ export default function Home() {
     closeImport();
     notify("批量导入成功");
   };
+  const resetClientImport = () => {
+    setClientImportFileName("");
+    setClientImportPreview([]);
+    setClientImportErrors([]);
+  };
+  const closeClientImport = () => {
+    setShowClientImport(false);
+    resetClientImport();
+  };
+  const parseClientImportFile = async (file: File) => {
+    setClientImportFileName(file.name);
+    setClientImportPreview([]);
+    setClientImportErrors([]);
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const sheetName = workbook.SheetNames.includes("客户模板配置批量导入") ? "客户模板配置批量导入" : workbook.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json<(string | number)[]>(workbook.Sheets[sheetName], {
+        header: 1,
+        defval: "",
+        raw: true,
+      });
+      const normalize = (value: string | number) => String(value).replace(/\*/g, "").trim();
+      const headerRowIndex = rows.findIndex((row) => row.some((cell) => normalize(cell) === "交易账户"));
+      if (headerRowIndex < 0) {
+        setClientImportErrors(["未找到标准表头，请使用页面提供的客户配置 Excel 模板。"]);
+        return;
+      }
+      const headers = rows[headerRowIndex].map(normalize);
+      const indexes = {
+        account: headers.indexOf("交易账户"),
+        business: headers.indexOf("业务类型"),
+        contract: headers.indexOf("合约类型"),
+        exchanges: headers.indexOf("交易所"),
+        products: headers.indexOf("资产品种"),
+        direction: headers.indexOf("交易方向"),
+        offset: headers.indexOf("开平标志"),
+        template: headers.indexOf("报单排序模板"),
+        mode: headers.indexOf("导入方式"),
+      };
+      if (Object.values(indexes).some((index) => index < 0)) {
+        setClientImportErrors(["表头不完整，必须包含交易账户、业务与合约类型、交易所、资产品种、交易方向、开平标志、报单排序模板和导入方式。"]);
+        return;
+      }
+
+      const errors: string[] = [];
+      const grouped = new Map<string, ClientImportPreview>();
+      rows.slice(headerRowIndex + 1).forEach((row, rowOffset) => {
+        const excelRow = headerRowIndex + rowOffset + 2;
+        const account = normalize(row[indexes.account] ?? "");
+        const business = normalize(row[indexes.business] ?? "");
+        const contract = normalize(row[indexes.contract] ?? "");
+        const exchangeText = normalize(row[indexes.exchanges] ?? "");
+        const productText = normalize(row[indexes.products] ?? "");
+        const direction = normalize(row[indexes.direction] ?? "");
+        const offset = normalize(row[indexes.offset] ?? "");
+        const template = normalize(row[indexes.template] ?? "");
+        const mode = normalize(row[indexes.mode] ?? "");
+        if (![account, business, contract, exchangeText, productText, direction, offset, template, mode].some(Boolean)) return;
+        if (![account, business, contract, exchangeText, productText, direction, offset, template, mode].every(Boolean)) {
+          errors.push(`第 ${excelRow} 行：所有字段均为必填项。`);
+          return;
+        }
+        if (!accounts.some((item) => item.name === account)) {
+          errors.push(`第 ${excelRow} 行：交易账户“${account}”不存在。`);
+          return;
+        }
+        if (direction !== "买" && direction !== "卖") {
+          errors.push(`第 ${excelRow} 行：交易方向只能填写“买”或“卖”。`);
+          return;
+        }
+        if (!["默认", "开仓", "平仓"].includes(offset)) {
+          errors.push(`第 ${excelRow} 行：开平标志只能填写“默认”“开仓”或“平仓”。`);
+          return;
+        }
+        if (!orderTemplates.some((item) => item.name === template)) {
+          errors.push(`第 ${excelRow} 行：报单排序模板“${template}”不存在。`);
+          return;
+        }
+        if (mode !== "新增" && mode !== "覆盖") {
+          errors.push(`第 ${excelRow} 行：导入方式只能填写“新增”或“覆盖”。`);
+          return;
+        }
+        const existing = grouped.get(account);
+        if (existing && existing.mode !== mode) {
+          errors.push(`第 ${excelRow} 行：同一交易账户的导入方式必须一致。`);
+          return;
+        }
+        const rule: Rule = {
+          id: Date.now() + rowOffset + Math.floor(Math.random() * 1000),
+          business,
+          contract,
+          exchanges: splitImportValues(exchangeText),
+          products: splitImportValues(productText),
+          direction: direction as Direction,
+          offset: offset as Offset,
+          template,
+        };
+        if (existing) existing.rules.push(rule);
+        else grouped.set(account, { account, mode: mode as "新增" | "覆盖", rules: [rule] });
+      });
+      const preview = [...grouped.values()];
+      if (!preview.length && !errors.length) errors.push("Excel 中没有可导入的客户配置数据。");
+      setClientImportPreview(preview);
+      setClientImportErrors(errors.slice(0, 10));
+    } catch {
+      setClientImportErrors(["文件解析失败，请确认上传的是有效的 .xlsx 或 .xls 文件。"]);
+    }
+  };
+  const confirmClientImport = () => {
+    if (clientImportErrors.length || !clientImportPreview.length) return;
+    setAccounts((current) => current.map((account) => {
+      const imported = clientImportPreview.find((item) => item.account === account.name);
+      if (!imported) return account;
+      return {
+        ...account,
+        rules: imported.mode === "覆盖" ? imported.rules : [...account.rules, ...imported.rules],
+      };
+    }));
+    setExpandedAccounts((current) => [...new Set([...current, ...clientImportPreview.map((item) => item.account)])]);
+    setSelectedClientRules([]);
+    closeClientImport();
+    notify("客户模板配置导入成功");
+  };
+  const toggleClientRule = (account: string, id: number) => {
+    const key = clientRuleKey(account, id);
+    setSelectedClientRules((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  };
+  const toggleAllClientRules = (account: Account) => {
+    const keys = account.rules.map((rule) => clientRuleKey(account.name, rule.id));
+    const allSelected = keys.length > 0 && keys.every((key) => selectedClientRules.includes(key));
+    setSelectedClientRules((current) => allSelected
+      ? current.filter((key) => !keys.includes(key))
+      : [...new Set([...current, ...keys])]);
+  };
+  const batchDeleteClientRules = () => {
+    const selected = new Set(selectedClientRules);
+    setAccounts((current) => current.map((account) => ({
+      ...account,
+      rules: account.rules.filter((rule) => !selected.has(clientRuleKey(account.name, rule.id))),
+    })));
+    setSelectedClientRules([]);
+    setShowClientDeleteConfirm(false);
+    notify("客户模板配置批量删除成功");
+  };
   const addTemplateDetail = (name: string) => setOrderTemplates((current) =>
     current.map((template) => template.name === name
       ? {
@@ -467,9 +652,12 @@ export default function Home() {
     setEditing({ account: accountName, id: rule.id });
     setDraft(rule);
   };
-  const deleteRule = (accountName: string, id: number) => setAccounts((current) => current.map((account) =>
-    account.name === accountName ? { ...account, rules: account.rules.filter((rule) => rule.id !== id) } : account,
-  ));
+  const deleteRule = (accountName: string, id: number) => {
+    setAccounts((current) => current.map((account) =>
+      account.name === accountName ? { ...account, rules: account.rules.filter((rule) => rule.id !== id) } : account,
+    ));
+    setSelectedClientRules((current) => current.filter((key) => key !== clientRuleKey(accountName, id)));
+  };
   const addAccount = () => {
     const name = newAccountName.trim();
     if (!name || accounts.some((account) => account.name === name)) return;
@@ -482,6 +670,7 @@ export default function Home() {
   const deleteAccount = (name: string) => {
     setAccounts((current) => current.filter((account) => account.name !== name));
     setExpandedAccounts((current) => current.filter((account) => account !== name));
+    setSelectedClientRules((current) => current.filter((key) => !key.startsWith(`${name}::`)));
     notify("删除成功");
   };
   const toggleConfigTemplate = (name: string) => setExpandedConfigTemplates((current) =>
@@ -670,7 +859,16 @@ export default function Home() {
         )}
 
         <section className="client-section">
-          <div className="section-title-row"><h2>客户配置</h2></div>
+          <div className="section-title-row">
+            <h2>客户配置</h2>
+            <div className="client-batch-actions">
+              <button className="ghost" onClick={() => setShowClientImport(true)}>⇧ 批量导入客户配置</button>
+              <a className="ghost button-link" href="/客户报单排序模板批量导入模板.xlsx" download>⇩ 下载客户配置模板</a>
+              <button className="danger-outline" disabled={!selectedClientRules.length} onClick={() => setShowClientDeleteConfirm(true)}>
+                批量删除配置{selectedClientRules.length ? `（${selectedClientRules.length}）` : ""}
+              </button>
+            </div>
+          </div>
           <div className="toolbar">
             <label>交易账户：
               <select value={queryAccount} onChange={(event) => setQueryAccount(event.target.value)} aria-label="筛选交易账户">
@@ -714,6 +912,9 @@ export default function Home() {
                       onCancel={() => setEditing(null)}
                       onDelete={(id) => deleteRule(account.name, id)}
                       onAdd={() => addRule(account.name)}
+                      selectedIds={account.rules.filter((rule) => selectedClientRules.includes(clientRuleKey(account.name, rule.id))).map((rule) => rule.id)}
+                      onToggleSelect={(id) => toggleClientRule(account.name, id)}
+                      onToggleAll={() => toggleAllClientRules(account)}
                     />
                   )}
                 </div>
@@ -726,6 +927,80 @@ export default function Home() {
       </main>
 
       {toast && <div className="toast" role="status"><span>✓</span>{toast}</div>}
+
+      {showClientImport && (
+        <div className="modal-backdrop" role="presentation">
+          <section className="import-modal client-import-modal" role="dialog" aria-modal="true" aria-labelledby="client-import-title">
+            <div className="modal-header">
+              <div>
+                <h2 id="client-import-title">批量导入客户报单排序配置</h2>
+                <p>按交易账户批量新增或覆盖配置，上传后将先校验并预览。</p>
+              </div>
+              <button className="modal-close" aria-label="关闭客户配置批量导入" onClick={closeClientImport}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="import-steps">
+                <span className="active"><b>1</b> 上传文件</span>
+                <i />
+                <span className={clientImportPreview.length || clientImportErrors.length ? "active" : ""}><b>2</b> 数据校验</span>
+                <i />
+                <span><b>3</b> 确认配置</span>
+              </div>
+              <label className="upload-zone">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  aria-label="选择客户配置Excel文件"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void parseClientImportFile(file);
+                  }}
+                />
+                <span className="upload-icon">⇧</span>
+                <strong>{clientImportFileName || "点击选择或拖入客户配置 Excel"}</strong>
+                <small>支持 .xlsx、.xls；交易方向与开平标志需分别填写</small>
+              </label>
+              <div className="template-download-tip">
+                请先
+                <a href="/客户报单排序模板批量导入模板.xlsx" download>下载客户配置标准模板</a>
+                ，按说明页填写后上传。
+              </div>
+              {clientImportErrors.length > 0 && (
+                <div className="import-errors">
+                  <strong>发现 {clientImportErrors.length} 个问题</strong>
+                  <ul>{clientImportErrors.map((error) => <li key={error}>{error}</li>)}</ul>
+                </div>
+              )}
+              {clientImportPreview.length > 0 && (
+                <div className="import-preview">
+                  <div className="preview-summary">
+                    <strong>客户配置预览</strong>
+                    <span>{clientImportPreview.length} 个交易账户 · {clientImportPreview.reduce((total, item) => total + item.rules.length, 0)} 条配置</span>
+                  </div>
+                  <table>
+                    <thead><tr><th>交易账户</th><th>配置条数</th><th>导入方式</th><th>方向字段</th><th>状态</th></tr></thead>
+                    <tbody>
+                      {clientImportPreview.map((item) => (
+                        <tr key={item.account}>
+                          <td>{item.account}</td>
+                          <td>{item.rules.length}</td>
+                          <td><span className={`mode-tag ${item.mode === "覆盖" ? "overwrite" : ""}`}>{item.mode}</span></td>
+                          <td>交易方向 + 开平标志</td>
+                          <td><span className={clientImportErrors.length ? "invalid-status" : "valid-status"}>{clientImportErrors.length ? "待修正" : "校验通过"}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="ghost" onClick={closeClientImport}>取消</button>
+              <button className="primary" disabled={Boolean(clientImportErrors.length) || !clientImportPreview.length} onClick={confirmClientImport}>确认配置</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {showImport && (
         <div className="modal-backdrop" role="presentation">
@@ -810,6 +1085,20 @@ export default function Home() {
             <div>
               <button className="ghost" onClick={() => setShowDeleteConfirm(false)}>取消</button>
               <button className="danger-button" onClick={batchDeleteTemplates}>确认删除</button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showClientDeleteConfirm && (
+        <div className="modal-backdrop" role="presentation">
+          <section className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="client-delete-title">
+            <span className="warning-icon">!</span>
+            <h2 id="client-delete-title">确认批量删除客户配置？</h2>
+            <p>将删除已勾选的 {selectedClientRules.length} 条客户报单排序模板配置，账户本身不会被删除。</p>
+            <div>
+              <button className="ghost" onClick={() => setShowClientDeleteConfirm(false)}>取消</button>
+              <button className="danger-button" onClick={batchDeleteClientRules}>确认删除</button>
             </div>
           </section>
         </div>
