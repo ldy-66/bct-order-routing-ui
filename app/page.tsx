@@ -29,10 +29,6 @@ type OrderTemplate = {
   details: TemplateDetail[];
 };
 
-type ImportTemplate = OrderTemplate & {
-  mode: "新增" | "覆盖";
-};
-
 type ClientImportPreview = {
   account: string;
   mode: "新增" | "覆盖";
@@ -240,7 +236,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"order" | "template">("order");
   const [orderTemplates, setOrderTemplates] = useState<OrderTemplate[]>(initialTemplates);
   const [expandedTemplates, setExpandedTemplates] = useState<string[]>([]);
-  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
   const [configTemplates, setConfigTemplates] = useState<ConfigTemplate[]>(initialConfigTemplates);
   const [expandedConfigTemplates, setExpandedConfigTemplates] = useState<string[]>([]);
   const [editingConfig, setEditingConfig] = useState<{ name: string; id: number } | null>(null);
@@ -265,11 +260,6 @@ export default function Home() {
   const [clientImportFileName, setClientImportFileName] = useState("");
   const [clientImportPreview, setClientImportPreview] = useState<ClientImportPreview[]>([]);
   const [clientImportErrors, setClientImportErrors] = useState<string[]>([]);
-  const [showImport, setShowImport] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [importFileName, setImportFileName] = useState("");
-  const [importPreview, setImportPreview] = useState<ImportTemplate[]>([]);
-  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [toast, setToast] = useState("");
 
   const visibleAccounts = useMemo(() => queryAccount ? accounts.filter((account) => account.name === queryAccount) : accounts, [accounts, queryAccount]);
@@ -281,126 +271,10 @@ export default function Home() {
   const toggleTemplate = (name: string) => setExpandedTemplates((current) =>
     current.includes(name) ? current.filter((item) => item !== name) : [...current, name],
   );
-  const toggleSelectedTemplate = (name: string) => setSelectedTemplates((current) =>
-    current.includes(name) ? current.filter((item) => item !== name) : [...current, name],
-  );
-  const toggleAllTemplates = () => setSelectedTemplates((current) =>
-    current.length === orderTemplates.length ? [] : orderTemplates.map((template) => template.name),
-  );
   const deleteTemplate = (name: string) => {
     setOrderTemplates((current) => current.filter((template) => template.name !== name));
-    setSelectedTemplates((current) => current.filter((item) => item !== name));
     setExpandedTemplates((current) => current.filter((item) => item !== name));
     notify("删除成功");
-  };
-  const batchDeleteTemplates = () => {
-    setOrderTemplates((current) => current.filter((template) => !selectedTemplates.includes(template.name)));
-    setExpandedTemplates((current) => current.filter((item) => !selectedTemplates.includes(item)));
-    setSelectedTemplates([]);
-    setShowDeleteConfirm(false);
-    notify("批量删除成功");
-  };
-  const resetImport = () => {
-    setImportFileName("");
-    setImportPreview([]);
-    setImportErrors([]);
-  };
-  const closeImport = () => {
-    setShowImport(false);
-    resetImport();
-  };
-  const parseImportFile = async (file: File) => {
-    setImportFileName(file.name);
-    setImportPreview([]);
-    setImportErrors([]);
-    try {
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-      const sheetName = workbook.SheetNames.includes("批量导入模板") ? "批量导入模板" : workbook.SheetNames[0];
-      const rows = XLSX.utils.sheet_to_json<(string | number)[]>(workbook.Sheets[sheetName], {
-        header: 1,
-        defval: "",
-        raw: true,
-      });
-      const normalize = (value: string | number) => String(value).replace(/\*/g, "").trim();
-      const headerRowIndex = rows.findIndex((row) => row.some((cell) => normalize(cell) === "模板名称"));
-      if (headerRowIndex < 0) {
-        setImportErrors(["未找到标准表头，请使用页面提供的 Excel 模板。"]);
-        return;
-      }
-      const headers = rows[headerRowIndex].map(normalize);
-      const nameIndex = headers.indexOf("模板名称");
-      const noteIndex = headers.indexOf("备注");
-      const orderIndex = headers.indexOf("报单排序");
-      const channelIndex = headers.indexOf("对冲渠道");
-      const modeIndex = headers.indexOf("导入方式");
-      if ([nameIndex, orderIndex, channelIndex, modeIndex].some((index) => index < 0)) {
-        setImportErrors(["表头不完整，必须包含模板名称、报单排序、对冲渠道和导入方式。"]);
-        return;
-      }
-
-      const errors: string[] = [];
-      const grouped = new Map<string, ImportTemplate>();
-      rows.slice(headerRowIndex + 1).forEach((row, rowOffset) => {
-        const excelRow = headerRowIndex + rowOffset + 2;
-        const name = normalize(row[nameIndex] ?? "");
-        const note = noteIndex >= 0 ? normalize(row[noteIndex] ?? "") : "";
-        const channel = normalize(row[channelIndex] ?? "");
-        const modeText = normalize(row[modeIndex] ?? "");
-        const order = Number(row[orderIndex]);
-        if (!name && !channel && !modeText && !row[orderIndex]) return;
-        if (!name || !channel || !modeText || !Number.isInteger(order) || order <= 0) {
-          errors.push(`第 ${excelRow} 行：请完整填写模板名称、正整数报单排序、对冲渠道和导入方式。`);
-          return;
-        }
-        if (modeText !== "新增" && modeText !== "覆盖") {
-          errors.push(`第 ${excelRow} 行：导入方式只能填写“新增”或“覆盖”。`);
-          return;
-        }
-        const existing = grouped.get(name);
-        if (existing && existing.mode !== modeText) {
-          errors.push(`第 ${excelRow} 行：同一模板的导入方式必须一致。`);
-          return;
-        }
-        if (existing?.details.some((detail) => detail.order === order)) {
-          errors.push(`第 ${excelRow} 行：模板“${name}”的报单排序 ${order} 重复。`);
-          return;
-        }
-        if (existing) {
-          existing.details.push({ order, channel });
-        } else {
-          grouped.set(name, { name, note, mode: modeText, details: [{ order, channel }] });
-        }
-      });
-
-      const preview = [...grouped.values()].map((template) => ({
-        ...template,
-        details: template.details.sort((a, b) => a.order - b.order),
-      }));
-      preview.forEach((template) => {
-        if (template.mode === "新增" && orderTemplates.some((existing) => existing.name === template.name)) {
-          errors.push(`模板“${template.name}”已存在，请将导入方式改为“覆盖”或修改模板名称。`);
-        }
-      });
-      if (!preview.length && !errors.length) errors.push("Excel 中没有可导入的数据。");
-      setImportPreview(preview);
-      setImportErrors(errors.slice(0, 8));
-    } catch {
-      setImportErrors(["文件解析失败，请确认上传的是有效的 .xlsx 或 .xls 文件。"]);
-    }
-  };
-  const confirmImport = () => {
-    if (importErrors.length || !importPreview.length) return;
-    setOrderTemplates((current) => {
-      const importedNames = importPreview.map((template) => template.name);
-      const preserved = current.filter((template) => !importedNames.includes(template.name));
-      return [
-        ...preserved,
-        ...importPreview.map(({ mode: _mode, ...template }) => template),
-      ];
-    });
-    setExpandedTemplates((current) => [...new Set([...current, ...importPreview.map((template) => template.name)])]);
-    closeImport();
-    notify("批量导入成功");
   };
   const resetClientImport = () => {
     setClientImportFileName("");
@@ -620,7 +494,6 @@ export default function Home() {
     if (editingTop.kind === "order") {
       setOrderTemplates((current) => current.map((template) => template.name === editingTop.originalName ? { ...template, name: nextName, note: editingTop.note.trim() } : template));
       setExpandedTemplates((current) => current.map((name) => name === editingTop.originalName ? nextName : name));
-      setSelectedTemplates((current) => current.map((name) => name === editingTop.originalName ? nextName : name));
       setAccounts((current) => current.map((account) => ({ ...account, rules: account.rules.map((rule) => rule.template === editingTop.originalName ? { ...rule, template: nextName } : rule) })));
       setConfigTemplates((current) => current.map((template) => ({ ...template, rules: template.rules.map((rule) => rule.template === editingTop.originalName ? { ...rule, template: nextName } : rule) })));
     } else {
@@ -728,28 +601,8 @@ export default function Home() {
             <button className={activeTab === "order" ? "tab active" : "tab"} onClick={() => { setActiveTab("order"); setShowNewTemplate(false); setEditingTop(null); }}>报单顺序配置</button>
             <button className={activeTab === "template" ? "tab active" : "tab"} onClick={() => { setActiveTab("template"); setShowNewTemplate(false); setEditingTop(null); }}>模板配置</button>
           </div>
+          <button className="primary" onClick={() => setShowNewTemplate(true)}>新 增</button>
         </div>
-
-        {activeTab === "order" ? (
-          <>
-            <div className="template-actions">
-              <button className="primary" onClick={() => setShowNewTemplate(true)}>新 增</button>
-              <button className="danger-outline" disabled={!selectedTemplates.length} onClick={() => setShowDeleteConfirm(true)}>
-                批量删除{selectedTemplates.length ? `（${selectedTemplates.length}）` : ""}
-              </button>
-              <button className="expand-all" onClick={() => setExpandedTemplates(expandedTemplates.length === orderTemplates.length ? [] : orderTemplates.map((template) => template.name))}>
-                {expandedTemplates.length === orderTemplates.length ? "全部收起" : "全部展开"}
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="template-actions">
-            <button className="primary" onClick={() => setShowNewTemplate(true)}>新 增</button>
-            <button className="expand-all" onClick={() => setExpandedConfigTemplates(expandedConfigTemplates.length === configTemplates.length ? [] : configTemplates.map((template) => template.name))}>
-              {expandedConfigTemplates.length === configTemplates.length ? "全部收起" : "全部展开"}
-            </button>
-          </div>
-        )}
 
         {showNewTemplate && (
           <div className="inline-form">
@@ -765,7 +618,6 @@ export default function Home() {
           <section className="template-section">
             <table className="data-table template-table">
               <thead><tr>
-                <th className="select-col"><input type="checkbox" aria-label="全选报单排序模板" checked={orderTemplates.length > 0 && selectedTemplates.length === orderTemplates.length} onChange={toggleAllTemplates} /></th>
                 <th className="toggle-col" /><th>报单排序模板名称</th><th>备注</th><th className="actions-col">操作</th>
               </tr></thead>
               <tbody>
@@ -773,8 +625,7 @@ export default function Home() {
                   const isTopEditing = editingTop?.kind === "order" && editingTop.originalName === template.name;
                   return (
                     <Fragment key={template.name}>
-                      <tr className={selectedTemplates.includes(template.name) ? "selected-template-row" : ""}>
-                        <td><input type="checkbox" aria-label={`选择模板${template.name}`} checked={selectedTemplates.includes(template.name)} onChange={() => toggleSelectedTemplate(template.name)} /></td>
+                      <tr>
                         <td><button className="toggle-button" onClick={() => toggleTemplate(template.name)} aria-label={`${expandedTemplates.includes(template.name) ? "收起" : "展开"}${template.name}`}><Chevron open={expandedTemplates.includes(template.name)} /></button></td>
                         <td className={template.name === "默认模板" ? "strong" : ""}>{isTopEditing ? <input className="cell-input" value={editingTop.name} onChange={(event) => setEditingTop({ ...editingTop, name: event.target.value })} aria-label="编辑报单排序模板名称" /> : template.name}</td>
                         <td>{isTopEditing ? <input className="cell-input" value={editingTop.note} onChange={(event) => setEditingTop({ ...editingTop, note: event.target.value })} aria-label="编辑报单排序模板备注" /> : template.note}</td>
@@ -782,7 +633,7 @@ export default function Home() {
                       </tr>
                       {expandedTemplates.includes(template.name) && (
                         <tr className="template-detail">
-                          <td /><td colSpan={4}>
+                          <td /><td colSpan={3}>
                             <div className="template-detail-panel">
                               <table className="template-detail-table">
                                 <thead><tr><th className="drag-col" /><th>报单排序</th><th>对冲渠道</th><th>操作</th></tr></thead>
@@ -995,94 +846,6 @@ export default function Home() {
             <div className="modal-footer">
               <button className="ghost" onClick={closeClientImport}>取消</button>
               <button className="primary" disabled={Boolean(clientImportErrors.length) || !clientImportPreview.length} onClick={confirmClientImport}>确认配置</button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {showImport && (
-        <div className="modal-backdrop" role="presentation">
-          <section className="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
-            <div className="modal-header">
-              <div>
-                <h2 id="import-title">批量导入报单排序模板</h2>
-                <p>上传后将先校验并预览，不会立即写入列表。</p>
-              </div>
-              <button className="modal-close" aria-label="关闭批量导入" onClick={closeImport}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="import-steps">
-                <span className="active"><b>1</b> 上传文件</span>
-                <i />
-                <span className={importPreview.length || importErrors.length ? "active" : ""}><b>2</b> 数据校验</span>
-                <i />
-                <span><b>3</b> 确认导入</span>
-              </div>
-              <label className="upload-zone">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  aria-label="选择Excel文件"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void parseImportFile(file);
-                  }}
-                />
-                <span className="upload-icon">⇧</span>
-                <strong>{importFileName || "点击选择或拖入 Excel 文件"}</strong>
-                <small>支持 .xlsx、.xls，单次最多导入 500 条排序明细</small>
-              </label>
-              <div className="template-download-tip">
-                首次使用？请先
-                <a href="/报单排序模板批量导入模板.xlsx" download>下载标准导入模板</a>
-                ，不要修改表头名称。
-              </div>
-              {importErrors.length > 0 && (
-                <div className="import-errors">
-                  <strong>发现 {importErrors.length} 个问题</strong>
-                  <ul>{importErrors.map((error) => <li key={error}>{error}</li>)}</ul>
-                </div>
-              )}
-              {importPreview.length > 0 && (
-                <div className="import-preview">
-                  <div className="preview-summary">
-                    <strong>文件预览</strong>
-                    <span>{importPreview.length} 个模板 · {importPreview.reduce((total, template) => total + template.details.length, 0)} 条排序明细</span>
-                  </div>
-                  <table>
-                    <thead><tr><th>模板名称</th><th>备注</th><th>排序明细数</th><th>导入方式</th><th>状态</th></tr></thead>
-                    <tbody>
-                      {importPreview.map((template) => (
-                        <tr key={template.name}>
-                          <td>{template.name}</td>
-                          <td>{template.note || "—"}</td>
-                          <td>{template.details.length}</td>
-                          <td><span className={`mode-tag ${template.mode === "覆盖" ? "overwrite" : ""}`}>{template.mode}</span></td>
-                          <td><span className={importErrors.length ? "invalid-status" : "valid-status"}>{importErrors.length ? "待修正" : "校验通过"}</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="ghost" onClick={closeImport}>取消</button>
-              <button className="primary" disabled={Boolean(importErrors.length) || !importPreview.length} onClick={confirmImport}>确认导入</button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {showDeleteConfirm && (
-        <div className="modal-backdrop" role="presentation">
-          <section className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
-            <span className="warning-icon">!</span>
-            <h2 id="delete-title">确认批量删除？</h2>
-            <p>将删除已选择的 {selectedTemplates.length} 个报单排序模板，此操作仅作用于当前页面数据。</p>
-            <div>
-              <button className="ghost" onClick={() => setShowDeleteConfirm(false)}>取消</button>
-              <button className="danger-button" onClick={batchDeleteTemplates}>确认删除</button>
             </div>
           </section>
         </div>

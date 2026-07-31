@@ -29,9 +29,7 @@ select:focus,input:focus { border-color:var(--blue); box-shadow:0 0 0 2px rgb(22
 .primary { border:1px solid var(--blue); background:var(--blue); color:#fff; }.primary:hover { background:#0877dd; }
 .ghost { border:1px solid #d2d7dc; background:#fff; }.small { height:30px; min-width:58px; }
 .button-link { display:inline-flex; align-items:center; justify-content:center; color:#202b33; text-decoration:none; }
-.template-actions { min-height:58px; display:flex; align-items:center; gap:9px; }
 .danger-outline { height:33px; border:1px solid #ff6a6f; background:#fff; color:#eb343a; padding:0 14px; }
-.expand-all { margin-left:auto; border:0; background:transparent; color:var(--blue); padding:8px 0; }
 .inline-form { min-height:54px; display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid #cfe5f7; border-top:0; background:#f7fbfe; }
 .inline-form input { width:230px; height:30px; }
 .template-section { padding:0; }
@@ -39,11 +37,9 @@ select:focus,input:focus { border-color:var(--blue); box-shadow:0 0 0 2px rgb(22
 .data-table th,.data-table td { border-right:1px solid var(--grid); border-bottom:1px solid var(--grid); text-align:left; }
 .data-table th { height:34px; padding:0 13px; background:var(--head); color:#52606b; font-weight:400; }
 .data-table td { height:32px; padding:4px 13px; background:#fff; }
-.template-table { border:1px solid #cfd5d9; }.template-table .select-col { width:40px; text-align:center; }.template-table .toggle-col { width:38px; border-right:0; }.template-table th:nth-child(3) { width:260px; }
+.template-table { border:1px solid #cfd5d9; }.template-table .toggle-col { width:38px; border-right:0; }.template-table th:nth-child(2) { width:260px; }
 .template-table .actions-col { width:180px; text-align:center; }.template-table td:last-child { text-align:center; }.strong { font-weight:700; }
 .template-table td:first-child { text-align:center; padding-left:6px; padding-right:6px; }
-.template-table input[type="checkbox"] { width:14px; height:14px; accent-color:var(--blue); }
-.selected-template-row td { background:#edf7ff; }
 .toggle-button { border:0; padding:0; background:transparent; display:inline-flex; }
 .square-toggle { width:16px; height:16px; border:1px solid #d8dde1; border-radius:2px; display:inline-grid; place-items:center; color:#101820; line-height:1; font-size:16px; }
 .link { border:0; background:transparent; color:#1688ef; padding:1px 5px; }.danger { color:var(--danger); }
