@@ -16,6 +16,7 @@ type Rule = {
   template: string;
 };
 type Account = { name: string; rules: Rule[] };
+type ConfigTemplate = { name: string; note: string; rules: Rule[] };
 
 type TemplateDetail = {
   order: number;
@@ -42,6 +43,34 @@ const initialTemplates: OrderTemplate[] = [
   { name: "sjn-mock2", note: "", details: [{ order: 1, channel: "Mock" }] },
 ];
 
+const initialConfigTemplates: ConfigTemplate[] = [
+  {
+    name: "默认模板",
+    note: "通用",
+    rules: [
+      { id: 101, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所", "深港通", "沪股通"], products: ["全部"], direction: "买", offset: "默认", template: "test1" },
+      { id: 102, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所", "上海期货交易所"], products: ["聚丙烯", "白银"], direction: "买", offset: "开仓", template: "test1" },
+      { id: 103, business: "融资交易", contract: "股票", exchanges: ["深交所", "上交所", "香港交易所", "深港通", "沪股通"], products: ["全部"], direction: "卖", offset: "平仓", template: "默认模板" },
+    ],
+  },
+  {
+    name: "test",
+    note: "5413",
+    rules: [
+      { id: 201, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所"], products: ["全部"], direction: "买", offset: "默认", template: "test1" },
+    ],
+  },
+  {
+    name: "期货",
+    note: "",
+    rules: [
+      { id: 301, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所"], products: ["尿素"], direction: "买", offset: "开仓", template: "test1" },
+      { id: 302, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所", "上海期货交易所"], products: ["全部"], direction: "买", offset: "平仓", template: "test2" },
+    ],
+  },
+  { name: "测试模板", note: "", rules: [] },
+];
+
 const seedAccounts: Account[] = [
   {
     name: "msycs",
@@ -58,6 +87,16 @@ const seedAccounts: Account[] = [
 ];
 
 const navItems = ["定价簿记", "实时风控", "持仓管理", "客户管理", "资金/保证金管理", "日终管理", "监管报送", "报告中心", "OMS管理", "example-sdk", "市场数据", "定价配置"];
+const emptyRule = (): Rule => ({
+  id: Date.now() + Math.floor(Math.random() * 1000),
+  business: "普通交易",
+  contract: "股票",
+  exchanges: ["深交所", "上交所"],
+  products: ["全部"],
+  direction: "买",
+  offset: "默认",
+  template: "默认模板",
+});
 
 function Chevron({ open }: { open: boolean }) {
   return <span className="square-toggle">{open ? "−" : "+"}</span>;
@@ -74,24 +113,129 @@ function ChipList({ values }: { values: string[] }) {
   );
 }
 
+type RuleTableProps = {
+  scope: string;
+  rules: Rule[];
+  editingId: number | null;
+  draft: Rule;
+  orderTemplates: OrderTemplate[];
+  onEdit: (rule: Rule) => void;
+  onDraft: (rule: Rule) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete: (id: number) => void;
+  onAdd: () => void;
+};
+
+function RuleTable({
+  scope,
+  rules,
+  editingId,
+  draft,
+  orderTemplates,
+  onEdit,
+  onDraft,
+  onSave,
+  onCancel,
+  onDelete,
+  onAdd,
+}: RuleTableProps) {
+  return (
+    <div className="rules-wrap">
+      <table className="data-table rules-table">
+        <thead><tr>
+          <th>业务类型</th><th>合约类型</th><th>交易所</th><th>资产品种</th>
+          <th className="direction-head">交易方向<span>买 / 卖</span></th>
+          <th className="offset-head">开平标志<span>默认 / 开仓 / 平仓</span></th>
+          <th>顺序名称</th><th className="rule-actions">操作</th>
+        </tr></thead>
+        <tbody>
+          {rules.map((rule) => {
+            const isEditing = editingId === rule.id;
+            const shown = isEditing ? draft : rule;
+            return (
+              <tr className={isEditing ? "editing-row" : ""} key={rule.id}>
+                <td>{isEditing ? (
+                  <select value={shown.business} onChange={(event) => onDraft({ ...draft, business: event.target.value })} aria-label={`${scope}业务类型`}>
+                    <option>普通交易</option><option>融资交易</option><option>融券交易</option><option>对冲互换</option>
+                  </select>
+                ) : shown.business}</td>
+                <td>{isEditing ? (
+                  <select value={shown.contract} onChange={(event) => onDraft({ ...draft, contract: event.target.value })} aria-label={`${scope}合约类型`}>
+                    <option>股票</option><option>期货</option><option>期权</option><option>互换</option>
+                  </select>
+                ) : shown.contract}</td>
+                <td><ChipList values={shown.exchanges} /></td>
+                <td><ChipList values={shown.products} /></td>
+                <td className="direction-cell">
+                  {isEditing ? (
+                    <select className="direction-select" value={shown.direction} onChange={(event) => onDraft({ ...draft, direction: event.target.value as Direction })} aria-label={`${scope}交易方向`}>
+                      <option value="买">买</option><option value="卖">卖</option>
+                    </select>
+                  ) : <span className={`status ${shown.direction === "买" ? "buy" : "sell"}`}>{shown.direction}</span>}
+                </td>
+                <td className="offset-cell">
+                  {isEditing ? (
+                    <select className="offset-select" value={shown.offset} onChange={(event) => onDraft({ ...draft, offset: event.target.value as Offset })} aria-label={`${scope}开平标志`}>
+                      <option value="默认">默认</option><option value="开仓">开仓</option><option value="平仓">平仓</option>
+                    </select>
+                  ) : <span className="offset-value">{shown.offset}</span>}
+                </td>
+                <td>{isEditing ? (
+                  <select value={shown.template} onChange={(event) => onDraft({ ...draft, template: event.target.value })} aria-label={`${scope}顺序名称`}>
+                    {orderTemplates.map((template) => <option key={template.name}>{template.name}</option>)}
+                  </select>
+                ) : shown.template}</td>
+                <td>{isEditing ? (
+                  <><button className="link" onClick={onSave}>保存</button><button className="link" onClick={onCancel}>取消</button></>
+                ) : (
+                  <><button className="link" onClick={() => onEdit(rule)}>编辑</button><button className="link danger" onClick={() => onDelete(rule.id)}>删除</button></>
+                )}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <button className="add-rule" onClick={onAdd}>＋ 新增一行</button>
+    </div>
+  );
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"order" | "template">("order");
   const [orderTemplates, setOrderTemplates] = useState<OrderTemplate[]>(initialTemplates);
   const [expandedTemplates, setExpandedTemplates] = useState<string[]>([]);
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
+  const [configTemplates, setConfigTemplates] = useState<ConfigTemplate[]>(initialConfigTemplates);
+  const [expandedConfigTemplates, setExpandedConfigTemplates] = useState<string[]>([]);
+  const [editingConfig, setEditingConfig] = useState<{ name: string; id: number } | null>(null);
+  const [configDraft, setConfigDraft] = useState<Rule>(initialConfigTemplates[0].rules[0]);
   const [accounts, setAccounts] = useState(seedAccounts);
   const [expandedAccounts, setExpandedAccounts] = useState<string[]>(["msycs"]);
-  const [editing, setEditing] = useState<{ account: string; id: number } | null>({ account: "msycs", id: 1 });
+  const [editing, setEditing] = useState<{ account: string; id: number } | null>(null);
   const [draft, setDraft] = useState<Rule>(seedAccounts[0].rules[0]);
   const [queryAccount, setQueryAccount] = useState("");
   const [showNewTemplate, setShowNewTemplate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateNote, setNewTemplateNote] = useState("");
+  const [editingTop, setEditingTop] = useState<{ kind: "order" | "template"; originalName: string; name: string; note: string } | null>(null);
+  const [editingDetail, setEditingDetail] = useState<{ template: string; order: number } | null>(null);
+  const [detailDraft, setDetailDraft] = useState<TemplateDetail>({ order: 1, channel: "Mock" });
+  const [draggedDetail, setDraggedDetail] = useState<{ template: string; order: number } | null>(null);
+  const [showNewAccount, setShowNewAccount] = useState(false);
+  const [newAccountName, setNewAccountName] = useState("");
   const [showImport, setShowImport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [importFileName, setImportFileName] = useState("");
   const [importPreview, setImportPreview] = useState<ImportTemplate[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [toast, setToast] = useState("");
 
   const visibleAccounts = useMemo(() => queryAccount ? accounts.filter((account) => account.name === queryAccount) : accounts, [accounts, queryAccount]);
+  const notify = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 1800);
+  };
 
   const toggleTemplate = (name: string) => setExpandedTemplates((current) =>
     current.includes(name) ? current.filter((item) => item !== name) : [...current, name],
@@ -106,12 +250,14 @@ export default function Home() {
     setOrderTemplates((current) => current.filter((template) => template.name !== name));
     setSelectedTemplates((current) => current.filter((item) => item !== name));
     setExpandedTemplates((current) => current.filter((item) => item !== name));
+    notify("删除成功");
   };
   const batchDeleteTemplates = () => {
     setOrderTemplates((current) => current.filter((template) => !selectedTemplates.includes(template.name)));
     setExpandedTemplates((current) => current.filter((item) => !selectedTemplates.includes(item)));
     setSelectedTemplates([]);
     setShowDeleteConfirm(false);
+    notify("批量删除成功");
   };
   const resetImport = () => {
     setImportFileName("");
@@ -213,6 +359,7 @@ export default function Home() {
     });
     setExpandedTemplates((current) => [...new Set([...current, ...importPreview.map((template) => template.name)])]);
     closeImport();
+    notify("批量导入成功");
   };
   const addTemplateDetail = (name: string) => setOrderTemplates((current) =>
     current.map((template) => template.name === name
@@ -233,6 +380,71 @@ export default function Home() {
       ? { ...template, details: template.details.filter((detail) => detail.order !== order) }
       : template),
   );
+  const startDetailEditing = (template: string, detail: TemplateDetail) => {
+    setEditingDetail({ template, order: detail.order });
+    setDetailDraft({ ...detail });
+  };
+  const saveDetail = () => {
+    if (!editingDetail || !detailDraft.channel.trim()) return;
+    setOrderTemplates((current) => current.map((template) => template.name === editingDetail.template
+      ? {
+          ...template,
+          details: template.details
+            .map((detail) => detail.order === editingDetail.order ? { ...detailDraft } : detail)
+            .sort((a, b) => a.order - b.order),
+        }
+      : template));
+    setEditingDetail(null);
+    notify("保存成功");
+  };
+  const reorderDetails = (templateName: string, sourceOrder: number, targetOrder: number) => {
+    if (sourceOrder === targetOrder) return;
+    setOrderTemplates((current) => current.map((template) => {
+      if (template.name !== templateName) return template;
+      const details = [...template.details].sort((a, b) => a.order - b.order);
+      const sourceIndex = details.findIndex((detail) => detail.order === sourceOrder);
+      const targetIndex = details.findIndex((detail) => detail.order === targetOrder);
+      if (sourceIndex < 0 || targetIndex < 0) return template;
+      const [moved] = details.splice(sourceIndex, 1);
+      details.splice(targetIndex, 0, moved);
+      return { ...template, details: details.map((detail, index) => ({ ...detail, order: index + 1 })) };
+    }));
+    notify("排序已更新");
+  };
+  const saveNewTop = () => {
+    const name = newTemplateName.trim();
+    if (!name) return;
+    if (activeTab === "order") {
+      if (orderTemplates.some((template) => template.name === name)) return notify("名称已存在");
+      setOrderTemplates((current) => [...current, { name, note: newTemplateNote.trim(), details: [{ order: 1, channel: "请选择渠道" }] }]);
+      setExpandedTemplates((current) => [...current, name]);
+    } else {
+      if (configTemplates.some((template) => template.name === name)) return notify("名称已存在");
+      setConfigTemplates((current) => [...current, { name, note: newTemplateNote.trim(), rules: [] }]);
+      setExpandedConfigTemplates((current) => [...current, name]);
+    }
+    setShowNewTemplate(false);
+    setNewTemplateName("");
+    setNewTemplateNote("");
+    notify("新增成功");
+  };
+  const startTopEditing = (kind: "order" | "template", name: string, note: string) => setEditingTop({ kind, originalName: name, name, note });
+  const saveTopEditing = () => {
+    if (!editingTop || !editingTop.name.trim()) return;
+    const nextName = editingTop.name.trim();
+    if (editingTop.kind === "order") {
+      setOrderTemplates((current) => current.map((template) => template.name === editingTop.originalName ? { ...template, name: nextName, note: editingTop.note.trim() } : template));
+      setExpandedTemplates((current) => current.map((name) => name === editingTop.originalName ? nextName : name));
+      setSelectedTemplates((current) => current.map((name) => name === editingTop.originalName ? nextName : name));
+      setAccounts((current) => current.map((account) => ({ ...account, rules: account.rules.map((rule) => rule.template === editingTop.originalName ? { ...rule, template: nextName } : rule) })));
+      setConfigTemplates((current) => current.map((template) => ({ ...template, rules: template.rules.map((rule) => rule.template === editingTop.originalName ? { ...rule, template: nextName } : rule) })));
+    } else {
+      setConfigTemplates((current) => current.map((template) => template.name === editingTop.originalName ? { ...template, name: nextName, note: editingTop.note.trim() } : template));
+      setExpandedConfigTemplates((current) => current.map((name) => name === editingTop.originalName ? nextName : name));
+    }
+    setEditingTop(null);
+    notify("保存成功");
+  };
   const toggleAccount = (name: string) => setExpandedAccounts((current) =>
     current.includes(name) ? current.filter((item) => item !== name) : [...current, name],
   );
@@ -246,9 +458,10 @@ export default function Home() {
       account.name === editing.account ? { ...account, rules: account.rules.map((rule) => rule.id === editing.id ? { ...draft } : rule) } : account,
     ));
     setEditing(null);
+    notify("保存成功");
   };
   const addRule = (accountName: string) => {
-    const rule: Rule = { id: Date.now(), business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所"], products: ["全部"], direction: "买", offset: "默认", template: "默认模板" };
+    const rule = emptyRule();
     setAccounts((current) => current.map((account) => account.name === accountName ? { ...account, rules: [...account.rules, rule] } : account));
     setExpandedAccounts((current) => current.includes(accountName) ? current : [...current, accountName]);
     setEditing({ account: accountName, id: rule.id });
@@ -257,7 +470,50 @@ export default function Home() {
   const deleteRule = (accountName: string, id: number) => setAccounts((current) => current.map((account) =>
     account.name === accountName ? { ...account, rules: account.rules.filter((rule) => rule.id !== id) } : account,
   ));
-  const addAccount = () => setAccounts((current) => [...current, { name: `新交易账户${current.length + 1}`, rules: [] }]);
+  const addAccount = () => {
+    const name = newAccountName.trim();
+    if (!name || accounts.some((account) => account.name === name)) return;
+    setAccounts((current) => [...current, { name, rules: [] }]);
+    setExpandedAccounts((current) => [...current, name]);
+    setShowNewAccount(false);
+    setNewAccountName("");
+    notify("新增交易账户成功");
+  };
+  const deleteAccount = (name: string) => {
+    setAccounts((current) => current.filter((account) => account.name !== name));
+    setExpandedAccounts((current) => current.filter((account) => account !== name));
+    notify("删除成功");
+  };
+  const toggleConfigTemplate = (name: string) => setExpandedConfigTemplates((current) =>
+    current.includes(name) ? current.filter((item) => item !== name) : [...current, name],
+  );
+  const deleteConfigTemplate = (name: string) => {
+    setConfigTemplates((current) => current.filter((template) => template.name !== name));
+    setExpandedConfigTemplates((current) => current.filter((item) => item !== name));
+    notify("删除成功");
+  };
+  const startConfigEditing = (name: string, rule: Rule) => {
+    setEditingConfig({ name, id: rule.id });
+    setConfigDraft({ ...rule });
+  };
+  const saveConfigDraft = () => {
+    if (!editingConfig) return;
+    setConfigTemplates((current) => current.map((template) => template.name === editingConfig.name
+      ? { ...template, rules: template.rules.map((rule) => rule.id === editingConfig.id ? { ...configDraft } : rule) }
+      : template));
+    setEditingConfig(null);
+    notify("保存成功");
+  };
+  const addConfigRule = (name: string) => {
+    const rule = emptyRule();
+    setConfigTemplates((current) => current.map((template) => template.name === name ? { ...template, rules: [...template.rules, rule] } : template));
+    setExpandedConfigTemplates((current) => current.includes(name) ? current : [...current, name]);
+    setEditingConfig({ name, id: rule.id });
+    setConfigDraft(rule);
+  };
+  const deleteConfigRule = (name: string, id: number) => setConfigTemplates((current) => current.map((template) =>
+    template.name === name ? { ...template, rules: template.rules.filter((rule) => rule.id !== id) } : template,
+  ));
 
   return (
     <div className="app-shell">
@@ -280,109 +536,138 @@ export default function Home() {
 
         <div className="tabs-row">
           <div className="tabs">
-            <button className={activeTab === "order" ? "tab active" : "tab"} onClick={() => setActiveTab("order")}>报单顺序配置</button>
-            <button className={activeTab === "template" ? "tab active" : "tab"} onClick={() => setActiveTab("template")}>模板配置</button>
+            <button className={activeTab === "order" ? "tab active" : "tab"} onClick={() => { setActiveTab("order"); setShowNewTemplate(false); setEditingTop(null); }}>报单顺序配置</button>
+            <button className={activeTab === "template" ? "tab active" : "tab"} onClick={() => { setActiveTab("template"); setShowNewTemplate(false); setEditingTop(null); }}>模板配置</button>
           </div>
         </div>
 
-        <div className="template-actions">
-          <button className="primary" onClick={() => setShowNewTemplate(true)}>新 增</button>
-          <button className="ghost" onClick={() => setShowImport(true)}>⇧ 批量导入</button>
-          <a className="ghost button-link" href="/报单排序模板批量导入模板.xlsx" download>⇩ 下载导入模板</a>
-          <button
-            className="danger-outline"
-            disabled={!selectedTemplates.length}
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            批量删除{selectedTemplates.length ? `（${selectedTemplates.length}）` : ""}
-          </button>
-          <button
-            className="expand-all"
-            onClick={() => setExpandedTemplates(
-              expandedTemplates.length === orderTemplates.length
-                ? []
-                : orderTemplates.map((template) => template.name),
-            )}
-          >
-            {expandedTemplates.length === orderTemplates.length ? "全部收起" : "全部展开"}
-          </button>
-        </div>
-
-        {showNewTemplate && (
-          <div className="inline-form">
-            <strong>新增报单顺序</strong>
-            <input aria-label="报单顺序名称" placeholder="请输入报单顺序名称" />
-            <input aria-label="备注" placeholder="请输入备注" />
-            <button className="primary small" onClick={() => setShowNewTemplate(false)}>保存</button>
-            <button className="ghost small" onClick={() => setShowNewTemplate(false)}>取消</button>
+        {activeTab === "order" ? (
+          <>
+            <div className="template-actions">
+              <button className="primary" onClick={() => setShowNewTemplate(true)}>新 增</button>
+              <button className="ghost" onClick={() => setShowImport(true)}>⇧ 批量导入</button>
+              <a className="ghost button-link" href="/报单排序模板批量导入模板.xlsx" download>⇩ 下载导入模板</a>
+              <button className="danger-outline" disabled={!selectedTemplates.length} onClick={() => setShowDeleteConfirm(true)}>
+                批量删除{selectedTemplates.length ? `（${selectedTemplates.length}）` : ""}
+              </button>
+              <button className="expand-all" onClick={() => setExpandedTemplates(expandedTemplates.length === orderTemplates.length ? [] : orderTemplates.map((template) => template.name))}>
+                {expandedTemplates.length === orderTemplates.length ? "全部收起" : "全部展开"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="template-actions">
+            <button className="primary" onClick={() => setShowNewTemplate(true)}>新 增</button>
+            <button className="expand-all" onClick={() => setExpandedConfigTemplates(expandedConfigTemplates.length === configTemplates.length ? [] : configTemplates.map((template) => template.name))}>
+              {expandedConfigTemplates.length === configTemplates.length ? "全部收起" : "全部展开"}
+            </button>
           </div>
         )}
 
-        <section className="template-section">
-          <table className="data-table template-table">
-            <thead><tr>
-              <th className="select-col">
-                <input
-                  type="checkbox"
-                  aria-label="全选报单排序模板"
-                  checked={orderTemplates.length > 0 && selectedTemplates.length === orderTemplates.length}
-                  onChange={toggleAllTemplates}
-                />
-              </th>
-              <th className="toggle-col" />
-              <th>报单排序模板名称</th>
-              <th>备注</th>
-              <th className="actions-col">操作</th>
-            </tr></thead>
-            <tbody>
-              {orderTemplates.map((template) => (
-                <Fragment key={template.name}>
-                  <tr className={selectedTemplates.includes(template.name) ? "selected-template-row" : ""}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        aria-label={`选择模板${template.name}`}
-                        checked={selectedTemplates.includes(template.name)}
-                        onChange={() => toggleSelectedTemplate(template.name)}
-                      />
-                    </td>
-                    <td><button className="toggle-button" onClick={() => toggleTemplate(template.name)} aria-label={`${expandedTemplates.includes(template.name) ? "收起" : "展开"}${template.name}`}><Chevron open={expandedTemplates.includes(template.name)} /></button></td>
-                    <td className={template.name === "默认模板" ? "strong" : ""}>{template.name}</td>
-                    <td>{template.note}</td>
-                    <td><button className="link">编辑</button><button className="link danger" onClick={() => deleteTemplate(template.name)}>删除</button></td>
-                  </tr>
-                  {expandedTemplates.includes(template.name) && (
-                    <tr className="template-detail">
-                      <td />
-                      <td colSpan={4}>
-                        <div className="template-detail-panel">
-                          <table className="template-detail-table">
-                            <thead><tr><th className="drag-col" /><th>报单排序</th><th>对冲渠道</th><th>操作</th></tr></thead>
-                            <tbody>
-                              {template.details.map((detail) => (
-                                <tr key={`${template.name}-${detail.order}`}>
-                                  <td className="drag-handle">⠿</td>
-                                  <td>{detail.order}</td>
-                                  <td>{detail.channel}</td>
-                                  <td>
-                                    <button className="link">编辑</button>
-                                    <button className="link danger" onClick={() => deleteTemplateDetail(template.name, detail.order)}>删除</button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                          <button className="add-template-detail" onClick={() => addTemplateDetail(template.name)}>新增一行</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-          <div className="template-count">共 {orderTemplates.length} 项</div>
-        </section>
+        {showNewTemplate && (
+          <div className="inline-form">
+            <strong>{activeTab === "order" ? "新增报单顺序" : "新增配置模板"}</strong>
+            <input value={newTemplateName} onChange={(event) => setNewTemplateName(event.target.value)} aria-label={activeTab === "order" ? "报单顺序名称" : "模板名称"} placeholder={activeTab === "order" ? "请输入报单顺序名称" : "请输入模板名称"} />
+            <input value={newTemplateNote} onChange={(event) => setNewTemplateNote(event.target.value)} aria-label="备注" placeholder="请输入备注" />
+            <button className="primary small" disabled={!newTemplateName.trim()} onClick={saveNewTop}>保存</button>
+            <button className="ghost small" onClick={() => { setShowNewTemplate(false); setNewTemplateName(""); setNewTemplateNote(""); }}>取消</button>
+          </div>
+        )}
+
+        {activeTab === "order" ? (
+          <section className="template-section">
+            <table className="data-table template-table">
+              <thead><tr>
+                <th className="select-col"><input type="checkbox" aria-label="全选报单排序模板" checked={orderTemplates.length > 0 && selectedTemplates.length === orderTemplates.length} onChange={toggleAllTemplates} /></th>
+                <th className="toggle-col" /><th>报单排序模板名称</th><th>备注</th><th className="actions-col">操作</th>
+              </tr></thead>
+              <tbody>
+                {orderTemplates.map((template) => {
+                  const isTopEditing = editingTop?.kind === "order" && editingTop.originalName === template.name;
+                  return (
+                    <Fragment key={template.name}>
+                      <tr className={selectedTemplates.includes(template.name) ? "selected-template-row" : ""}>
+                        <td><input type="checkbox" aria-label={`选择模板${template.name}`} checked={selectedTemplates.includes(template.name)} onChange={() => toggleSelectedTemplate(template.name)} /></td>
+                        <td><button className="toggle-button" onClick={() => toggleTemplate(template.name)} aria-label={`${expandedTemplates.includes(template.name) ? "收起" : "展开"}${template.name}`}><Chevron open={expandedTemplates.includes(template.name)} /></button></td>
+                        <td className={template.name === "默认模板" ? "strong" : ""}>{isTopEditing ? <input className="cell-input" value={editingTop.name} onChange={(event) => setEditingTop({ ...editingTop, name: event.target.value })} aria-label="编辑报单排序模板名称" /> : template.name}</td>
+                        <td>{isTopEditing ? <input className="cell-input" value={editingTop.note} onChange={(event) => setEditingTop({ ...editingTop, note: event.target.value })} aria-label="编辑报单排序模板备注" /> : template.note}</td>
+                        <td>{isTopEditing ? <><button className="link" onClick={saveTopEditing}>保存</button><button className="link" onClick={() => setEditingTop(null)}>取消</button></> : <><button className="link" onClick={() => startTopEditing("order", template.name, template.note)}>编辑</button><button className="link danger" onClick={() => deleteTemplate(template.name)}>删除</button></>}</td>
+                      </tr>
+                      {expandedTemplates.includes(template.name) && (
+                        <tr className="template-detail">
+                          <td /><td colSpan={4}>
+                            <div className="template-detail-panel">
+                              <table className="template-detail-table">
+                                <thead><tr><th className="drag-col" /><th>报单排序</th><th>对冲渠道</th><th>操作</th></tr></thead>
+                                <tbody>
+                                  {template.details.map((detail) => {
+                                    const isEditing = editingDetail?.template === template.name && editingDetail.order === detail.order;
+                                    return (
+                                      <tr key={`${template.name}-${detail.order}`} draggable={!isEditing} onDragStart={() => setDraggedDetail({ template: template.name, order: detail.order })} onDragOver={(event) => event.preventDefault()} onDrop={() => { if (draggedDetail?.template === template.name) reorderDetails(template.name, draggedDetail.order, detail.order); setDraggedDetail(null); }}>
+                                        <td className="drag-handle">⠿</td>
+                                        <td>{isEditing ? <input className="detail-order-input" type="number" min="1" value={detailDraft.order} onChange={(event) => setDetailDraft({ ...detailDraft, order: Number(event.target.value) })} aria-label="报单排序" /> : detail.order}</td>
+                                        <td>{isEditing ? <select value={detailDraft.channel} onChange={(event) => setDetailDraft({ ...detailDraft, channel: event.target.value })} aria-label="对冲渠道"><option>请选择渠道</option><option>Mock</option><option>QFII</option><option>QFII2</option><option>O32</option><option>CGSI</option></select> : detail.channel}</td>
+                                        <td>{isEditing ? <><button className="link" onClick={saveDetail}>保存</button><button className="link" onClick={() => setEditingDetail(null)}>取消</button></> : <><button className="link" onClick={() => startDetailEditing(template.name, detail)}>编辑</button><button className="link danger" onClick={() => deleteTemplateDetail(template.name, detail.order)}>删除</button></>}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                              <button className="add-template-detail" onClick={() => addTemplateDetail(template.name)}>新增一行</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="template-count">共 {orderTemplates.length} 项</div>
+          </section>
+        ) : (
+          <section className="template-section">
+            <table className="data-table template-table config-template-table">
+              <thead><tr><th className="toggle-col" /><th>模板名称</th><th>备注</th><th className="actions-col">操作</th></tr></thead>
+              <tbody>
+                {configTemplates.map((template) => {
+                  const isTopEditing = editingTop?.kind === "template" && editingTop.originalName === template.name;
+                  const isOpen = expandedConfigTemplates.includes(template.name);
+                  return (
+                    <Fragment key={template.name}>
+                      <tr>
+                        <td><button className="toggle-button" onClick={() => toggleConfigTemplate(template.name)} aria-label={`${isOpen ? "收起" : "展开"}配置模板${template.name}`}><Chevron open={isOpen} /></button></td>
+                        <td className={template.name === "默认模板" ? "strong" : ""}>{isTopEditing ? <input className="cell-input" value={editingTop.name} onChange={(event) => setEditingTop({ ...editingTop, name: event.target.value })} aria-label="编辑模板名称" /> : template.name}</td>
+                        <td>{isTopEditing ? <input className="cell-input" value={editingTop.note} onChange={(event) => setEditingTop({ ...editingTop, note: event.target.value })} aria-label="编辑模板备注" /> : template.note}</td>
+                        <td>{isTopEditing ? <><button className="link" onClick={saveTopEditing}>保存</button><button className="link" onClick={() => setEditingTop(null)}>取消</button></> : <><button className="link" onClick={() => startTopEditing("template", template.name, template.note)}>编辑</button><button className="link danger" onClick={() => deleteConfigTemplate(template.name)}>删除</button></>}</td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="template-detail config-detail">
+                          <td /><td colSpan={3}>
+                            <RuleTable
+                              scope={`模板${template.name}`}
+                              rules={template.rules}
+                              editingId={editingConfig?.name === template.name ? editingConfig.id : null}
+                              draft={configDraft}
+                              orderTemplates={orderTemplates}
+                              onEdit={(rule) => startConfigEditing(template.name, rule)}
+                              onDraft={setConfigDraft}
+                              onSave={saveConfigDraft}
+                              onCancel={() => setEditingConfig(null)}
+                              onDelete={(id) => deleteConfigRule(template.name, id)}
+                              onAdd={() => addConfigRule(template.name)}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="template-count">共 {configTemplates.length} 项</div>
+          </section>
+        )}
 
         <section className="client-section">
           <div className="section-title-row"><h2>客户配置</h2></div>
@@ -395,8 +680,16 @@ export default function Home() {
             </label>
             <button className="primary search-button"><span>⌕</span> 查询</button>
             <button className="ghost" onClick={() => setQueryAccount("")}>重 置</button>
-            <button className="primary add-account" onClick={addAccount}>新 增</button>
+            <button className="primary add-account" onClick={() => setShowNewAccount(true)}>新 增</button>
           </div>
+          {showNewAccount && (
+            <div className="inline-form account-inline-form">
+              <strong>新增交易账户</strong>
+              <input value={newAccountName} onChange={(event) => setNewAccountName(event.target.value)} aria-label="交易账户名称" placeholder="请输入交易账户名称" />
+              <button className="primary small" disabled={!newAccountName.trim()} onClick={addAccount}>保存</button>
+              <button className="ghost small" onClick={() => { setShowNewAccount(false); setNewAccountName(""); }}>取消</button>
+            </div>
+          )}
 
           <div className="account-table">
             <div className="account-head"><span /><span>交易账户</span><span>操作</span></div>
@@ -406,66 +699,22 @@ export default function Home() {
                 <div className="account-block" key={account.name}>
                   <div className="account-row">
                     <button className="toggle-button" onClick={() => toggleAccount(account.name)} aria-label={`${isOpen ? "收起" : "展开"}${account.name}`}><Chevron open={isOpen} /></button>
-                    <span>{account.name}</span><button className="link danger">删除</button>
+                    <span>{account.name}</span><button className="link danger" onClick={() => deleteAccount(account.name)}>删除</button>
                   </div>
                   {isOpen && (
-                    <div className="rules-wrap">
-                      <table className="data-table rules-table">
-                        <thead><tr>
-                          <th>业务类型</th><th>合约类型</th><th>交易所</th><th>资产品种</th>
-                          <th className="direction-head">交易方向<span>买 / 卖</span></th>
-                          <th className="offset-head">开平标志<span>默认 / 开仓 / 平仓</span></th>
-                          <th>顺序名称</th><th className="rule-actions">操作</th>
-                        </tr></thead>
-                        <tbody>
-                          {account.rules.map((rule) => {
-                            const isEditing = editing?.account === account.name && editing.id === rule.id;
-                            const shown = isEditing ? draft : rule;
-                            return (
-                              <tr className={isEditing ? "editing-row" : ""} key={rule.id}>
-                                <td>{isEditing ? <select value={shown.business} onChange={(event) => setDraft({ ...draft, business: event.target.value })} aria-label="业务类型"><option>普通交易</option><option>融资交易</option><option>融券交易</option></select> : shown.business}</td>
-                                <td>{isEditing ? <select value={shown.contract} onChange={(event) => setDraft({ ...draft, contract: event.target.value })} aria-label="合约类型"><option>股票</option><option>期货</option><option>期权</option></select> : shown.contract}</td>
-                                <td><ChipList values={shown.exchanges} /></td><td><ChipList values={shown.products} /></td>
-                                <td className="direction-cell">
-                                  {isEditing ? (
-                                    <select
-                                      className="direction-select"
-                                      value={shown.direction}
-                                      onChange={(event) => setDraft({ ...draft, direction: event.target.value as Direction })}
-                                      aria-label="交易方向"
-                                    >
-                                      <option value="买">买</option>
-                                      <option value="卖">卖</option>
-                                    </select>
-                                  ) : (
-                                    <span className={`status ${shown.direction === "买" ? "buy" : "sell"}`}>{shown.direction}</span>
-                                  )}
-                                </td>
-                                <td className="offset-cell">
-                                  {isEditing ? (
-                                    <select
-                                      className="offset-select"
-                                      value={shown.offset}
-                                      onChange={(event) => setDraft({ ...draft, offset: event.target.value as Offset })}
-                                      aria-label="开平标志"
-                                    >
-                                      <option value="默认">默认</option>
-                                      <option value="开仓">开仓</option>
-                                      <option value="平仓">平仓</option>
-                                    </select>
-                                  ) : (
-                                    <span className="offset-value">{shown.offset}</span>
-                                  )}
-                                </td>
-                                <td>{isEditing ? <select value={shown.template} onChange={(event) => setDraft({ ...draft, template: event.target.value })} aria-label="顺序名称">{orderTemplates.map((template) => <option key={template.name}>{template.name}</option>)}</select> : shown.template}</td>
-                                <td>{isEditing ? <><button className="link" onClick={saveDraft}>保存</button><button className="link" onClick={() => setEditing(null)}>取消</button></> : <><button className="link" onClick={() => startEditing(account.name, rule)}>编辑</button><button className="link danger" onClick={() => deleteRule(account.name, rule.id)}>删除</button></>}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      <button className="add-rule" onClick={() => addRule(account.name)}>＋ 新增一行</button>
-                    </div>
+                    <RuleTable
+                      scope={`账户${account.name}`}
+                      rules={account.rules}
+                      editingId={editing?.account === account.name ? editing.id : null}
+                      draft={draft}
+                      orderTemplates={orderTemplates}
+                      onEdit={(rule) => startEditing(account.name, rule)}
+                      onDraft={setDraft}
+                      onSave={saveDraft}
+                      onCancel={() => setEditing(null)}
+                      onDelete={(id) => deleteRule(account.name, id)}
+                      onAdd={() => addRule(account.name)}
+                    />
                   )}
                 </div>
               );
@@ -475,6 +724,8 @@ export default function Home() {
           <div className="pagination"><span>共 {visibleAccounts.length} 个交易账户</span><button disabled>‹</button><button className="current">1</button><button>›</button><select aria-label="每页数量" defaultValue="10 条/页"><option>10 条/页</option><option>20 条/页</option></select></div>
         </section>
       </main>
+
+      {toast && <div className="toast" role="status"><span>✓</span>{toast}</div>}
 
       {showImport && (
         <div className="modal-backdrop" role="presentation">
