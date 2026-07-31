@@ -734,8 +734,6 @@ export default function Home() {
           <>
             <div className="template-actions">
               <button className="primary" onClick={() => setShowNewTemplate(true)}>新 增</button>
-              <button className="ghost" onClick={() => setShowImport(true)}>⇧ 批量导入</button>
-              <a className="ghost button-link" href="/报单排序模板批量导入模板.xlsx" download>⇩ 下载导入模板</a>
               <button className="danger-outline" disabled={!selectedTemplates.length} onClick={() => setShowDeleteConfirm(true)}>
                 批量删除{selectedTemplates.length ? `（${selectedTemplates.length}）` : ""}
               </button>

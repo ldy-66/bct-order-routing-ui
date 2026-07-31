@@ -33,11 +33,11 @@ test("server-renders the OMS configuration page without a login gate", async () 
   assert.match(html, /报单顺序配置/);
   assert.match(html, /模板配置/);
   assert.match(html, /批量导入/);
-  assert.match(html, /下载导入模板/);
   assert.match(html, /客户配置/);
   assert.match(html, /批量导入客户配置/);
   assert.match(html, /下载客户配置模板/);
   assert.match(html, /批量删除配置/);
+  assert.doesNotMatch(html, />⇧ 批量导入<\/button>/);
   assert.match(html, /交易方向/);
   assert.match(html, /开平标志/);
   assert.doesNotMatch(html, /登录|login|password/i);
