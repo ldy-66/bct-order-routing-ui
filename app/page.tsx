@@ -58,20 +58,6 @@ function ChipList({ values }: { values: string[] }) {
   );
 }
 
-function Segmented<T extends string>({ value, values, onChange, label }: {
-  value: T; values: T[]; onChange: (next: T) => void; label: string;
-}) {
-  return (
-    <div className="segmented" role="group" aria-label={label}>
-      {values.map((item) => (
-        <button type="button" className={value === item ? "segment active" : "segment"} onClick={() => onChange(item)} key={item}>
-          {item}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"order" | "template">("order");
   const [expandedTemplates, setExpandedTemplates] = useState<string[]>([]);
@@ -201,7 +187,7 @@ export default function Home() {
                         <thead><tr>
                           <th>业务类型</th><th>合约类型</th><th>交易所</th><th>资产品种</th>
                           <th className="direction-head">交易方向<span>买 / 卖</span></th>
-                          <th className="offset-head">开平方向<span>开仓 / 平仓</span></th>
+                          <th className="offset-head">开平标志<span>默认 / 开仓 / 平仓</span></th>
                           <th>顺序名称</th><th className="rule-actions">操作</th>
                         </tr></thead>
                         <tbody>
@@ -213,8 +199,37 @@ export default function Home() {
                                 <td>{isEditing ? <select value={shown.business} onChange={(event) => setDraft({ ...draft, business: event.target.value })} aria-label="业务类型"><option>普通交易</option><option>融资交易</option><option>融券交易</option></select> : shown.business}</td>
                                 <td>{isEditing ? <select value={shown.contract} onChange={(event) => setDraft({ ...draft, contract: event.target.value })} aria-label="合约类型"><option>股票</option><option>期货</option><option>期权</option></select> : shown.contract}</td>
                                 <td><ChipList values={shown.exchanges} /></td><td><ChipList values={shown.products} /></td>
-                                <td className="direction-cell">{isEditing ? <Segmented value={shown.direction} values={["买", "卖"]} onChange={(direction) => setDraft({ ...draft, direction })} label="交易方向" /> : <span className={`status ${shown.direction === "买" ? "buy" : "sell"}`}>{shown.direction}</span>}</td>
-                                <td className="offset-cell">{isEditing ? <Segmented value={shown.offset} values={["默认", "开仓", "平仓"]} onChange={(offset) => setDraft({ ...draft, offset })} label="开平方向" /> : <span className="offset-value">{shown.offset}</span>}</td>
+                                <td className="direction-cell">
+                                  {isEditing ? (
+                                    <select
+                                      className="direction-select"
+                                      value={shown.direction}
+                                      onChange={(event) => setDraft({ ...draft, direction: event.target.value as Direction })}
+                                      aria-label="交易方向"
+                                    >
+                                      <option value="买">买</option>
+                                      <option value="卖">卖</option>
+                                    </select>
+                                  ) : (
+                                    <span className={`status ${shown.direction === "买" ? "buy" : "sell"}`}>{shown.direction}</span>
+                                  )}
+                                </td>
+                                <td className="offset-cell">
+                                  {isEditing ? (
+                                    <select
+                                      className="offset-select"
+                                      value={shown.offset}
+                                      onChange={(event) => setDraft({ ...draft, offset: event.target.value as Offset })}
+                                      aria-label="开平标志"
+                                    >
+                                      <option value="默认">默认</option>
+                                      <option value="开仓">开仓</option>
+                                      <option value="平仓">平仓</option>
+                                    </select>
+                                  ) : (
+                                    <span className="offset-value">{shown.offset}</span>
+                                  )}
+                                </td>
                                 <td>{isEditing ? <select value={shown.template} onChange={(event) => setDraft({ ...draft, template: event.target.value })} aria-label="顺序名称">{templates.map((template) => <option key={template.name}>{template.name}</option>)}</select> : shown.template}</td>
                                 <td>{isEditing ? <><button className="link" onClick={saveDraft}>保存</button><button className="link" onClick={() => setEditing(null)}>取消</button></> : <><button className="link" onClick={() => startEditing(account.name, rule)}>编辑</button><button className="link danger" onClick={() => deleteRule(account.name, rule.id)}>删除</button></>}</td>
                               </tr>
