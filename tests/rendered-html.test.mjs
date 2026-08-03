@@ -55,8 +55,8 @@ test("keeps transaction direction and offset as independent dropdown fields", as
   assert.match(page, /initialConfigTemplates/);
   assert.match(page, /批量导入客户报单排序配置/);
   assert.match(page, /下载客户配置导入模板/);
-  assert.match(page, /clientDeleteMode/);
   assert.match(page, /全选账户.*下所有配置/);
+  assert.doesNotMatch(page, /clientDeleteMode|取消批量删除/);
   assert.doesNotMatch(page, /onToggleAll/);
   assert.match(page, /selectedClientRules/);
   await access(new URL("../public/客户报单排序模板批量导入模板.xlsx", import.meta.url));

@@ -68,8 +68,7 @@ select:focus,input:focus { border-color:var(--blue); box-shadow:0 0 0 2px rgb(22
 .toolbar { display:flex; align-items:center; gap:8px; margin-bottom:16px; }.toolbar label { display:flex; align-items:center; }.toolbar select { width:180px; color:#a3abb2; }
 .search-button { margin-left:8px; }.search-button span { font-size:19px; display:inline-block; transform:rotate(-20deg); margin-right:4px; }.add-account { margin-left:auto; }
 .account-inline-form { margin:-7px 0 14px; border-top:1px solid #cfe5f7; }
-.account-table { border:1px solid #cfd5d9; }.account-head,.account-row { display:grid; grid-template-columns:46px 1fr 120px; align-items:center; }
-.account-head.selection-mode,.account-row.selection-mode { grid-template-columns:46px 40px 1fr 120px; }
+.account-table { border:1px solid #cfd5d9; }.account-head,.account-row { display:grid; grid-template-columns:46px 40px 1fr 120px; align-items:center; }
 .account-head { height:34px; background:var(--head); color:#52606b; }.account-name-head { padding-left:13px; }
 .account-action-head { height:100%; display:grid; place-items:center; border-left:1px solid var(--grid); }
 .account-row { min-height:32px; border-top:1px solid var(--grid); }.account-row:first-child { border-top:0; }.account-row>*:first-child { justify-self:center; }.account-row>span { padding-left:13px; }.account-row>.link { height:100%; border-left:1px solid var(--grid); }
