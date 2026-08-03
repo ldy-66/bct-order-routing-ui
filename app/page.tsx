@@ -276,6 +276,24 @@ export default function Home() {
     setShowClientImport(false);
     resetClientImport();
   };
+  const downloadClientImportErrors = (errors: string[]) => {
+    if (!errors.length) return;
+    const content = `\uFEFF${errors.join("\r\n")}\r\n`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "客户配置导入校验失败.txt";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+  const reportClientImportErrors = (errors: string[]) => {
+    setClientImportErrors(errors);
+    downloadClientImportErrors(errors);
+    notify("数据存在问题，已下载 TXT 错误详情");
+  };
   const parseClientImportFile = async (file: File) => {
     setClientImportFileName(file.name);
     setClientImportPreview([]);
@@ -291,7 +309,7 @@ export default function Home() {
       const normalize = (value: string | number) => String(value).replace(/\*/g, "").trim();
       const headerRowIndex = rows.findIndex((row) => row.some((cell) => normalize(cell) === "交易账户"));
       if (headerRowIndex < 0) {
-        setClientImportErrors(["未找到标准表头，请使用页面提供的客户配置 Excel 模板。"]);
+        reportClientImportErrors(["文件：未找到标准表头，请使用页面提供的客户配置 Excel 模板。"]);
         return;
       }
       const headers = rows[headerRowIndex].map(normalize);
@@ -307,7 +325,7 @@ export default function Home() {
         mode: headers.indexOf("导入方式"),
       };
       if (Object.values(indexes).some((index) => index < 0)) {
-        setClientImportErrors(["表头不完整，必须包含交易账户、业务与合约类型、交易所、资产品种、交易方向、开平标志、报单排序模板和导入方式。"]);
+        reportClientImportErrors(["文件：表头不完整，必须包含交易账户、业务类型、合约类型、交易所、资产品种、交易方向、开平标志、报单排序模板和导入方式。"]);
         return;
       }
 
@@ -368,11 +386,16 @@ export default function Home() {
         else grouped.set(account, { account, mode: mode as "新增" | "覆盖", rules: [rule] });
       });
       const preview = [...grouped.values()];
-      if (!preview.length && !errors.length) errors.push("Excel 中没有可导入的客户配置数据。");
       setClientImportPreview(preview);
-      setClientImportErrors(errors.slice(0, 10));
+      if (!preview.length && !errors.length) {
+        setClientImportErrors(["导入的文件内容为空。"]);
+        notify("导入的文件内容为空");
+        return;
+      }
+      if (errors.length) reportClientImportErrors(errors);
+      else setClientImportErrors([]);
     } catch {
-      setClientImportErrors(["文件解析失败，请确认上传的是有效的 .xlsx 或 .xls 文件。"]);
+      reportClientImportErrors(["文件：文件解析失败，请确认上传的是有效的 .xlsx 或 .xls 文件。"]);
     }
   };
   const confirmClientImport = () => {
@@ -809,7 +832,7 @@ export default function Home() {
                 />
                 <span className="upload-icon">⇧</span>
                 <strong>{clientImportFileName || "点击选择或拖入客户配置 Excel"}</strong>
-                <small>支持 .xlsx、.xls；交易方向与开平标志需分别填写</small>
+                <small>支持 .xlsx、.xls；交易方向与开平标志需分别填写；校验失败时自动下载 TXT 错误详情</small>
               </label>
               <div className="template-download-tip">
                 请先
@@ -818,8 +841,14 @@ export default function Home() {
               </div>
               {clientImportErrors.length > 0 && (
                 <div className="import-errors">
-                  <strong>发现 {clientImportErrors.length} 个问题</strong>
-                  <ul>{clientImportErrors.map((error) => <li key={error}>{error}</li>)}</ul>
+                  <div className="import-error-heading">
+                    <strong>发现 {clientImportErrors.length} 个问题</strong>
+                    {clientImportErrors[0] !== "导入的文件内容为空。" && (
+                      <button type="button" onClick={() => downloadClientImportErrors(clientImportErrors)}>重新下载错误详情 TXT</button>
+                    )}
+                  </div>
+                  <ul>{clientImportErrors.slice(0, 10).map((error) => <li key={error}>{error}</li>)}</ul>
+                  {clientImportErrors.length > 10 && <small>其余 {clientImportErrors.length - 10} 个问题请查看下载的 TXT 文件。</small>}
                 </div>
               )}
               {clientImportPreview.length > 0 && (

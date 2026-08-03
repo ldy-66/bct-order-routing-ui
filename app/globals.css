@@ -143,7 +143,10 @@ footer { position:absolute; left:0; right:0; bottom:0; height:45px; display:grid
 .upload-zone strong { color:#26343e; font-size:14px; }.upload-zone small { color:#98a2aa; }
 .template-download-tip { padding:11px 0 2px; color:#74818a; }.template-download-tip a { margin:0 4px; color:var(--blue); text-decoration:none; }
 .import-errors { margin-top:14px; padding:11px 14px; border:1px solid #ffccc7; background:#fff2f0; color:#a6262c; }
+.import-error-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.import-error-heading button { border:0; padding:0; background:transparent; color:var(--blue); cursor:pointer; font-size:13px; }
 .import-errors ul { margin:7px 0 0; padding-left:20px; line-height:1.7; }
+.import-errors > small { display:block; margin-top:6px; color:#8e4548; }
 .import-preview { margin-top:16px; border:1px solid #d9dee2; }
 .preview-summary { min-height:42px; display:flex; align-items:center; justify-content:space-between; padding:0 13px; background:#f6f8f9; }
 .preview-summary span { color:#74818a; }
