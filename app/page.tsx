@@ -131,7 +131,6 @@ type RuleTableProps = {
   onAdd: () => void;
   selectedIds?: number[];
   onToggleSelect?: (id: number) => void;
-  onToggleAll?: () => void;
 };
 
 function RuleTable({
@@ -148,22 +147,14 @@ function RuleTable({
   onAdd,
   selectedIds,
   onToggleSelect,
-  onToggleAll,
 }: RuleTableProps) {
-  const selectable = Boolean(selectedIds && onToggleSelect && onToggleAll);
+  const selectable = Boolean(selectedIds && onToggleSelect);
   return (
     <div className="rules-wrap">
       <table className={`data-table rules-table${selectable ? " selectable-rules-table" : ""}`}>
         <thead><tr>
           {selectable && (
-            <th className="rule-select-col">
-              <input
-                type="checkbox"
-                aria-label={`${scope}全选配置`}
-                checked={rules.length > 0 && selectedIds?.length === rules.length}
-                onChange={onToggleAll}
-              />
-            </th>
+            <th className="rule-select-col" aria-label="批量选择" />
           )}
           <th>业务类型</th><th>合约类型</th><th>交易所</th><th>资产品种</th>
           <th className="direction-head">交易方向<span>买 / 卖</span></th>
@@ -255,6 +246,7 @@ export default function Home() {
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [selectedClientRules, setSelectedClientRules] = useState<string[]>([]);
+  const [clientDeleteMode, setClientDeleteMode] = useState(false);
   const [showClientImport, setShowClientImport] = useState(false);
   const [showClientDeleteConfirm, setShowClientDeleteConfirm] = useState(false);
   const [clientImportFileName, setClientImportFileName] = useState("");
@@ -417,6 +409,7 @@ export default function Home() {
       rules: account.rules.filter((rule) => !selected.has(clientRuleKey(account.name, rule.id))),
     })));
     setSelectedClientRules([]);
+    setClientDeleteMode(false);
     setShowClientDeleteConfirm(false);
     notify("客户模板配置批量删除成功");
   };
@@ -711,10 +704,21 @@ export default function Home() {
           <div className="section-title-row">
             <h2>客户配置</h2>
             <div className="client-batch-actions">
-              <button className="ghost" onClick={() => setShowClientImport(true)}>⇧ 批量导入客户配置</button>
-              <a className="ghost button-link" href="/客户报单排序模板批量导入模板.xlsx" download>⇩ 下载客户配置模板</a>
-              <button className="danger-outline" disabled={!selectedClientRules.length} onClick={() => setShowClientDeleteConfirm(true)}>
-                批量删除配置{selectedClientRules.length ? `（${selectedClientRules.length}）` : ""}
+              {!clientDeleteMode && <button className="ghost" onClick={() => setShowClientImport(true)}>⇧ 批量导入客户配置</button>}
+              {clientDeleteMode && <button className="ghost" onClick={() => { setClientDeleteMode(false); setSelectedClientRules([]); }}>取消批量删除</button>}
+              <button
+                className="danger-outline"
+                disabled={clientDeleteMode && !selectedClientRules.length}
+                onClick={() => {
+                  if (!clientDeleteMode) {
+                    setClientDeleteMode(true);
+                    setSelectedClientRules([]);
+                  } else {
+                    setShowClientDeleteConfirm(true);
+                  }
+                }}
+              >
+                {clientDeleteMode ? `删除选中配置${selectedClientRules.length ? `（${selectedClientRules.length}）` : ""}` : "批量删除配置"}
               </button>
             </div>
           </div>
@@ -739,13 +743,28 @@ export default function Home() {
           )}
 
           <div className="account-table">
-            <div className="account-head"><span /><span>交易账户</span><span>操作</span></div>
+            <div className={`account-head${clientDeleteMode ? " selection-mode" : ""}`}>
+              <span />
+              {clientDeleteMode && <span className="account-select-head" />}
+              <span className="account-name-head">交易账户</span>
+              <span className="account-action-head">操作</span>
+            </div>
             {visibleAccounts.map((account) => {
               const isOpen = expandedAccounts.includes(account.name);
               return (
                 <div className="account-block" key={account.name}>
-                  <div className="account-row">
+                  <div className={`account-row${clientDeleteMode ? " selection-mode" : ""}`}>
                     <button className="toggle-button" onClick={() => toggleAccount(account.name)} aria-label={`${isOpen ? "收起" : "展开"}${account.name}`}><Chevron open={isOpen} /></button>
+                    {clientDeleteMode && (
+                      <input
+                        className="account-select-checkbox"
+                        type="checkbox"
+                        aria-label={`全选账户${account.name}下所有配置`}
+                        disabled={!account.rules.length}
+                        checked={account.rules.length > 0 && account.rules.every((rule) => selectedClientRules.includes(clientRuleKey(account.name, rule.id)))}
+                        onChange={() => toggleAllClientRules(account)}
+                      />
+                    )}
                     <span>{account.name}</span><button className="link danger" onClick={() => deleteAccount(account.name)}>删除</button>
                   </div>
                   {isOpen && (
@@ -761,9 +780,8 @@ export default function Home() {
                       onCancel={() => setEditing(null)}
                       onDelete={(id) => deleteRule(account.name, id)}
                       onAdd={() => addRule(account.name)}
-                      selectedIds={account.rules.filter((rule) => selectedClientRules.includes(clientRuleKey(account.name, rule.id))).map((rule) => rule.id)}
-                      onToggleSelect={(id) => toggleClientRule(account.name, id)}
-                      onToggleAll={() => toggleAllClientRules(account)}
+                      selectedIds={clientDeleteMode ? account.rules.filter((rule) => selectedClientRules.includes(clientRuleKey(account.name, rule.id))).map((rule) => rule.id) : undefined}
+                      onToggleSelect={clientDeleteMode ? (id) => toggleClientRule(account.name, id) : undefined}
                     />
                   )}
                 </div>
@@ -811,7 +829,7 @@ export default function Home() {
               </label>
               <div className="template-download-tip">
                 请先
-                <a href="/客户报单排序模板批量导入模板.xlsx" download>下载客户配置标准模板</a>
+                <a href="/客户报单排序模板批量导入模板.xlsx" download>下载客户配置导入模板</a>
                 ，按说明页填写后上传。
               </div>
               {clientImportErrors.length > 0 && (

@@ -35,8 +35,8 @@ test("server-renders the OMS configuration page without a login gate", async () 
   assert.match(html, /批量导入/);
   assert.match(html, /客户配置/);
   assert.match(html, /批量导入客户配置/);
-  assert.match(html, /下载客户配置模板/);
   assert.match(html, /批量删除配置/);
+  assert.doesNotMatch(html, /下载客户配置模板/);
   assert.doesNotMatch(html, />⇧ 批量导入<\/button>/);
   assert.doesNotMatch(html, /全部展开|全部收起/);
   assert.doesNotMatch(html, /全选报单排序模板|选择模板默认模板/);
@@ -54,6 +54,10 @@ test("keeps transaction direction and offset as independent dropdown fields", as
   assert.match(page, /className="offset-select"/);
   assert.match(page, /initialConfigTemplates/);
   assert.match(page, /批量导入客户报单排序配置/);
+  assert.match(page, /下载客户配置导入模板/);
+  assert.match(page, /clientDeleteMode/);
+  assert.match(page, /全选账户.*下所有配置/);
+  assert.doesNotMatch(page, /onToggleAll/);
   assert.match(page, /selectedClientRules/);
   await access(new URL("../public/客户报单排序模板批量导入模板.xlsx", import.meta.url));
 });
