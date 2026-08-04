@@ -3,6 +3,8 @@
 import { Fragment, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 
+const publicBasePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 type Direction = "买" | "卖";
 type Offset = "默认" | "开仓" | "平仓";
 type Rule = {
@@ -836,7 +838,7 @@ export default function Home() {
               </label>
               <div className="template-download-tip">
                 请先
-                <a href="/客户报单排序模板批量导入模板.xlsx" download>下载客户配置导入模板</a>
+                <a href={`${publicBasePath}/客户报单排序模板批量导入模板.xlsx`} download>下载客户配置导入模板</a>
                 ，按说明页填写后上传。
               </div>
               {clientImportErrors.length > 0 && (
