@@ -41,17 +41,17 @@ test("server-renders the OMS configuration page without a login gate", async () 
   assert.doesNotMatch(html, /全部展开|全部收起/);
   assert.doesNotMatch(html, /全选报单排序模板|选择模板默认模板/);
   assert.match(html, /交易方向/);
-  assert.match(html, /开平标志/);
+  assert.doesNotMatch(html, /开平标志/);
   assert.doesNotMatch(html, /登录|login|password/i);
 });
 
-test("keeps transaction direction and offset as independent dropdown fields", async () => {
+test("keeps transaction direction as one combined dropdown field", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /type Direction = "买" \| "卖"/);
-  assert.match(page, /type Offset = "默认" \| "开仓" \| "平仓"/);
+  assert.match(page, /type Direction = "买入" \| "卖出" \| "买开" \| "卖开" \| "买平" \| "卖平"/);
   assert.match(page, /className="direction-select"/);
-  assert.match(page, /className="offset-select"/);
+  assert.doesNotMatch(page, /className="offset-select"/);
+  assert.doesNotMatch(page, /开平标志/);
   assert.match(page, /initialConfigTemplates/);
   assert.match(page, /批量导入客户报单排序配置/);
   assert.match(page, /下载客户配置导入模板/);
