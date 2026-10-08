@@ -74,16 +74,15 @@ select:focus,input:focus { border-color:var(--blue); box-shadow:0 0 0 2px rgb(22
 .account-row { min-height:32px; border-top:1px solid var(--grid); }.account-row:first-child { border-top:0; }.account-row>*:first-child { justify-self:center; }.account-row>span { padding-left:13px; }.account-row>.link { height:100%; border-left:1px solid var(--grid); }
 .account-select-checkbox { width:14px; height:14px; justify-self:center; accent-color:var(--blue); }
 .rules-wrap { margin:12px 20px 17px 25px; border:1px solid #d6dadd; background:#fff; }
-.rules-table th:nth-child(1){width:11%}.rules-table th:nth-child(2){width:11%}.rules-table th:nth-child(3){width:15%}.rules-table th:nth-child(4){width:13%}.rules-table th:nth-child(5){width:10%}.rules-table th:nth-child(6){width:15%}.rules-table th:nth-child(7){width:12%}.rules-table th:nth-child(8){width:110px}
-.selectable-rules-table th:nth-child(1){width:40px}.selectable-rules-table th:nth-child(2){width:11%}.selectable-rules-table th:nth-child(3){width:11%}.selectable-rules-table th:nth-child(4){width:15%}.selectable-rules-table th:nth-child(5){width:13%}.selectable-rules-table th:nth-child(6){width:10%}.selectable-rules-table th:nth-child(7){width:15%}.selectable-rules-table th:nth-child(8){width:12%}.selectable-rules-table th:nth-child(9){width:110px}
+.rules-table th:nth-child(1){width:11%}.rules-table th:nth-child(2){width:11%}.rules-table th:nth-child(3){width:18%}.rules-table th:nth-child(4){width:15%}.rules-table th:nth-child(5){width:20%}.rules-table th:nth-child(6){width:15%}.rules-table th:nth-child(7){width:110px}
+.selectable-rules-table th:nth-child(1){width:40px}.selectable-rules-table th:nth-child(2){width:11%}.selectable-rules-table th:nth-child(3){width:11%}.selectable-rules-table th:nth-child(4){width:18%}.selectable-rules-table th:nth-child(5){width:15%}.selectable-rules-table th:nth-child(6){width:20%}.selectable-rules-table th:nth-child(7){width:15%}.selectable-rules-table th:nth-child(8){width:110px}
 .rule-select-col,.rule-select-cell { padding-left:0!important; padding-right:0!important; text-align:center!important; }
 .rules-table input[type="checkbox"] { width:14px; height:14px; accent-color:var(--blue); }
 .rules-table th { height:34px; }.rules-table td { height:52px; vertical-align:middle; }.rules-table select { width:100%; height:31px; border-color:transparent; border-bottom-color:#dfe5e9; padding-left:0; }
-.direction-head,.offset-head { color:#25323b!important; font-weight:600!important; position:relative; }.direction-head span,.offset-head span { display:block; margin-top:2px; color:#97a2aa; font-size:11px; font-weight:400; }
-.editing-row td { background:#fbfdff; }.editing-row td:nth-child(5),.editing-row td:nth-child(6) { background:#f4faff; }
+.direction-head { color:#25323b!important; font-weight:600!important; position:relative; }.direction-head span { display:block; margin-top:2px; color:#97a2aa; font-size:11px; font-weight:400; }
+.editing-row td { background:#fbfdff; }.editing-row .direction-cell { background:#f4faff; }
 .chips { display:flex; flex-wrap:wrap; gap:4px 7px; align-items:center; }.chip { padding:2px 7px; color:#137fdc; background:#ecf8ff; border:1px solid #72c5ff; border-radius:1px; white-space:nowrap; }.plain-value { color:#999; }
-.rules-table .direction-select,
-.rules-table .offset-select {
+.rules-table .direction-select {
   height:31px;
   width:100%;
   padding:0 28px 0 9px;
@@ -92,11 +91,10 @@ select:focus,input:focus { border-color:var(--blue); box-shadow:0 0 0 2px rgb(22
   background-color:#fff;
   color:#26343e;
 }
-.rules-table .direction-select:focus,
-.rules-table .offset-select:focus {
+.rules-table .direction-select:focus {
   border-color:var(--blue);
 }
-.status { display:inline-grid; min-width:40px; height:25px; place-items:center; border-radius:2px; font-weight:600; }.status.buy { color:#1677d2; background:#e9f5ff; }.status.sell { color:#d46518; background:#fff1e8; }.offset-value { color:#55636e; }
+.status { display:inline-grid; min-width:48px; height:25px; place-items:center; border-radius:2px; font-weight:600; }.status.buy { color:#1677d2; background:#e9f5ff; }.status.sell { color:#d46518; background:#fff1e8; }
 .rule-actions { text-align:center!important; }.rules-table td:last-child { text-align:center; }
 .add-rule { width:calc(100% - 20px); height:32px; margin:10px; border:1px dashed #d5dadd; background:#fafafa; color:#9ca5ab; }.add-rule:hover { border-color:#8bc8f4; color:var(--blue); background:#f5fbff; }
 .config-template-table th:nth-child(2) { width:260px; }

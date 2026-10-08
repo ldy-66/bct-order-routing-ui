@@ -5,8 +5,7 @@ import * as XLSX from "xlsx";
 
 const publicBasePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
-type Direction = "买" | "卖";
-type Offset = "默认" | "开仓" | "平仓";
+type Direction = "买入" | "卖出" | "买开" | "卖开" | "买平" | "卖平";
 type Rule = {
   id: number;
   business: string;
@@ -14,7 +13,6 @@ type Rule = {
   exchanges: string[];
   products: string[];
   direction: Direction;
-  offset: Offset;
   template: string;
 };
 type Account = { name: string; rules: Rule[] };
@@ -52,24 +50,24 @@ const initialConfigTemplates: ConfigTemplate[] = [
     name: "默认模板",
     note: "通用",
     rules: [
-      { id: 101, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所", "深港通", "沪股通"], products: ["全部"], direction: "买", offset: "默认", template: "test1" },
-      { id: 102, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所", "上海期货交易所"], products: ["聚丙烯", "白银"], direction: "买", offset: "开仓", template: "test1" },
-      { id: 103, business: "融资交易", contract: "股票", exchanges: ["深交所", "上交所", "香港交易所", "深港通", "沪股通"], products: ["全部"], direction: "卖", offset: "平仓", template: "默认模板" },
+      { id: 101, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所", "深港通", "沪股通"], products: ["全部"], direction: "买入", template: "test1" },
+      { id: 102, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所", "上海期货交易所"], products: ["聚丙烯", "白银"], direction: "买开", template: "test1" },
+      { id: 103, business: "融资交易", contract: "股票", exchanges: ["深交所", "上交所", "香港交易所", "深港通", "沪股通"], products: ["全部"], direction: "卖平", template: "默认模板" },
     ],
   },
   {
     name: "test",
     note: "5413",
     rules: [
-      { id: 201, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所"], products: ["全部"], direction: "买", offset: "默认", template: "test1" },
+      { id: 201, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所"], products: ["全部"], direction: "买入", template: "test1" },
     ],
   },
   {
     name: "期货",
     note: "",
     rules: [
-      { id: 301, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所"], products: ["尿素"], direction: "买", offset: "开仓", template: "test1" },
-      { id: 302, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所", "上海期货交易所"], products: ["全部"], direction: "买", offset: "平仓", template: "test2" },
+      { id: 301, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所"], products: ["尿素"], direction: "买开", template: "test1" },
+      { id: 302, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所", "上海期货交易所"], products: ["全部"], direction: "买平", template: "test2" },
     ],
   },
   { name: "测试模板", note: "", rules: [] },
@@ -79,10 +77,10 @@ const seedAccounts: Account[] = [
   {
     name: "msycs",
     rules: [
-      { id: 1, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所", "深港通", "沪股通"], products: ["全部"], direction: "买", offset: "默认", template: "test1" },
-      { id: 2, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所", "上海期货交易所"], products: ["聚丙烯", "白银"], direction: "卖", offset: "开仓", template: "test1" },
-      { id: 3, business: "融资交易", contract: "股票", exchanges: ["深交所", "上交所", "香港交易所", "深港通", "沪股通"], products: ["全部"], direction: "买", offset: "平仓", template: "默认模板" },
-      { id: 4, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所", "香港交易所"], products: ["全部"], direction: "卖", offset: "默认", template: "默认模板" },
+      { id: 1, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所", "深港通", "沪股通"], products: ["全部"], direction: "买入", template: "test1" },
+      { id: 2, business: "普通交易", contract: "期货", exchanges: ["大连商品交易所", "上海期货交易所"], products: ["聚丙烯", "白银"], direction: "卖开", template: "test1" },
+      { id: 3, business: "融资交易", contract: "股票", exchanges: ["深交所", "上交所", "香港交易所", "深港通", "沪股通"], products: ["全部"], direction: "买平", template: "默认模板" },
+      { id: 4, business: "普通交易", contract: "股票", exchanges: ["深交所", "上交所", "香港交易所"], products: ["全部"], direction: "卖出", template: "默认模板" },
     ],
   },
   { name: "142yyq03", rules: [] },
@@ -97,8 +95,7 @@ const emptyRule = (): Rule => ({
   contract: "股票",
   exchanges: ["深交所", "上交所"],
   products: ["全部"],
-  direction: "买",
-  offset: "默认",
+  direction: "买入",
   template: "默认模板",
 });
 const clientRuleKey = (account: string, id: number) => `${account}::${id}`;
@@ -159,8 +156,7 @@ function RuleTable({
             <th className="rule-select-col" aria-label="批量选择" />
           )}
           <th>业务类型</th><th>合约类型</th><th>交易所</th><th>资产品种</th>
-          <th className="direction-head">交易方向<span>买 / 卖</span></th>
-          <th className="offset-head">开平标志<span>默认 / 开仓 / 平仓</span></th>
+          <th className="direction-head">交易方向<span>买入 / 卖出 / 买开 / 卖开 / 买平 / 卖平</span></th>
           <th>顺序名称</th><th className="rule-actions">操作</th>
         </tr></thead>
         <tbody>
@@ -194,16 +190,11 @@ function RuleTable({
                 <td className="direction-cell">
                   {isEditing ? (
                     <select className="direction-select" value={shown.direction} onChange={(event) => onDraft({ ...draft, direction: event.target.value as Direction })} aria-label={`${scope}交易方向`}>
-                      <option value="买">买</option><option value="卖">卖</option>
+                      <option value="买入">买入</option><option value="卖出">卖出</option>
+                      <option value="买开">买开</option><option value="卖开">卖开</option>
+                      <option value="买平">买平</option><option value="卖平">卖平</option>
                     </select>
-                  ) : <span className={`status ${shown.direction === "买" ? "buy" : "sell"}`}>{shown.direction}</span>}
-                </td>
-                <td className="offset-cell">
-                  {isEditing ? (
-                    <select className="offset-select" value={shown.offset} onChange={(event) => onDraft({ ...draft, offset: event.target.value as Offset })} aria-label={`${scope}开平标志`}>
-                      <option value="默认">默认</option><option value="开仓">开仓</option><option value="平仓">平仓</option>
-                    </select>
-                  ) : <span className="offset-value">{shown.offset}</span>}
+                  ) : <span className={`status ${shown.direction.startsWith("买") ? "buy" : "sell"}`}>{shown.direction}</span>}
                 </td>
                 <td>{isEditing ? (
                   <select value={shown.template} onChange={(event) => onDraft({ ...draft, template: event.target.value })} aria-label={`${scope}顺序名称`}>
@@ -322,12 +313,11 @@ export default function Home() {
         exchanges: headers.indexOf("交易所"),
         products: headers.indexOf("资产品种"),
         direction: headers.indexOf("交易方向"),
-        offset: headers.indexOf("开平标志"),
         template: headers.indexOf("报单排序模板"),
         mode: headers.indexOf("导入方式"),
       };
       if (Object.values(indexes).some((index) => index < 0)) {
-        reportClientImportErrors(["文件：表头不完整，必须包含交易账户、业务类型、合约类型、交易所、资产品种、交易方向、开平标志、报单排序模板和导入方式。"]);
+        reportClientImportErrors(["文件：表头不完整，必须包含交易账户、业务类型、合约类型、交易所、资产品种、交易方向、报单排序模板和导入方式。"]);
         return;
       }
 
@@ -341,11 +331,10 @@ export default function Home() {
         const exchangeText = normalize(row[indexes.exchanges] ?? "");
         const productText = normalize(row[indexes.products] ?? "");
         const direction = normalize(row[indexes.direction] ?? "");
-        const offset = normalize(row[indexes.offset] ?? "");
         const template = normalize(row[indexes.template] ?? "");
         const mode = normalize(row[indexes.mode] ?? "");
-        if (![account, business, contract, exchangeText, productText, direction, offset, template, mode].some(Boolean)) return;
-        if (![account, business, contract, exchangeText, productText, direction, offset, template, mode].every(Boolean)) {
+        if (![account, business, contract, exchangeText, productText, direction, template, mode].some(Boolean)) return;
+        if (![account, business, contract, exchangeText, productText, direction, template, mode].every(Boolean)) {
           errors.push(`第 ${excelRow} 行：所有字段均为必填项。`);
           return;
         }
@@ -353,12 +342,8 @@ export default function Home() {
           errors.push(`第 ${excelRow} 行：交易账户“${account}”不存在。`);
           return;
         }
-        if (direction !== "买" && direction !== "卖") {
-          errors.push(`第 ${excelRow} 行：交易方向只能填写“买”或“卖”。`);
-          return;
-        }
-        if (!["默认", "开仓", "平仓"].includes(offset)) {
-          errors.push(`第 ${excelRow} 行：开平标志只能填写“默认”“开仓”或“平仓”。`);
+        if (!["买入", "卖出", "买开", "卖开", "买平", "卖平"].includes(direction)) {
+          errors.push(`第 ${excelRow} 行：交易方向只能填写“买入”“卖出”“买开”“卖开”“买平”或“卖平”。`);
           return;
         }
         if (!orderTemplates.some((item) => item.name === template)) {
@@ -381,7 +366,6 @@ export default function Home() {
           exchanges: splitImportValues(exchangeText),
           products: splitImportValues(productText),
           direction: direction as Direction,
-          offset: offset as Offset,
           template,
         };
         if (existing) existing.rules.push(rule);
@@ -834,7 +818,7 @@ export default function Home() {
                 />
                 <span className="upload-icon">⇧</span>
                 <strong>{clientImportFileName || "点击选择或拖入客户配置 Excel"}</strong>
-                <small>支持 .xlsx、.xls；交易方向与开平标志需分别填写；校验失败时自动下载 TXT 错误详情</small>
+                <small>支持 .xlsx、.xls；交易方向按组合枚举填写；校验失败时自动下载 TXT 错误详情</small>
               </label>
               <div className="template-download-tip">
                 请先
@@ -867,7 +851,7 @@ export default function Home() {
                           <td>{item.account}</td>
                           <td>{item.rules.length}</td>
                           <td><span className={`mode-tag ${item.mode === "覆盖" ? "overwrite" : ""}`}>{item.mode}</span></td>
-                          <td>交易方向 + 开平标志</td>
+                          <td>交易方向</td>
                           <td><span className={clientImportErrors.length ? "invalid-status" : "valid-status"}>{clientImportErrors.length ? "待修正" : "校验通过"}</span></td>
                         </tr>
                       ))}
