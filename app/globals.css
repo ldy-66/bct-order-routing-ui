@@ -117,7 +117,7 @@ footer { position:absolute; left:0; right:0; bottom:0; height:45px; display:grid
   background:rgb(0 18 32 / 42%);
 }
 .import-modal {
-  width:min(760px,calc(100vw - 48px));
+  width:min(520px,calc(100vw - 48px));
   max-height:calc(100vh - 48px);
   display:flex;
   flex-direction:column;
@@ -125,34 +125,16 @@ footer { position:absolute; left:0; right:0; bottom:0; height:45px; display:grid
   border-radius:3px;
   box-shadow:0 14px 46px rgb(0 0 0 / 22%);
 }
-.modal-header { min-height:72px; display:flex; align-items:flex-start; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e3e7ea; }
-.modal-header h2 { margin:0 0 5px; font-size:18px; }.modal-header p { margin:0; color:#87919a; }
+.modal-header { min-height:64px; display:flex; align-items:center; justify-content:space-between; padding:15px 22px; border-bottom:1px solid #e3e7ea; }
+.modal-header h2 { margin:0; font-size:18px; }
 .modal-close { width:30px; height:30px; border:0; background:transparent; color:#7b8790; font-size:24px; line-height:1; }
 .modal-body { padding:20px 22px; overflow:auto; }
-.import-steps { display:flex; align-items:center; justify-content:center; margin-bottom:18px; color:#9aa4ac; }
-.import-steps span { display:flex; align-items:center; gap:7px; white-space:nowrap; }
-.import-steps b { width:23px; height:23px; display:grid; place-items:center; border:1px solid #cdd3d8; border-radius:50%; font-weight:400; }
-.import-steps span.active { color:var(--blue); }.import-steps span.active b { border-color:var(--blue); background:var(--blue); color:#fff; }
-.import-steps i { width:72px; height:1px; margin:0 12px; background:#dce1e5; }
 .upload-zone { min-height:142px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; border:1px dashed #92bddd; background:#f8fcff; color:#53616b; cursor:pointer; }
 .upload-zone:hover { border-color:var(--blue); background:#f3faff; }
 .upload-zone input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
 .upload-icon { width:40px; height:40px; display:grid; place-items:center; border-radius:50%; background:#e5f3ff; color:var(--blue); font-size:24px; }
 .upload-zone strong { color:#26343e; font-size:14px; }.upload-zone small { color:#98a2aa; }
-.template-download-tip { padding:11px 0 2px; color:#74818a; }.template-download-tip a { margin:0 4px; color:var(--blue); text-decoration:none; }
-.import-errors { margin-top:14px; padding:11px 14px; border:1px solid #ffccc7; background:#fff2f0; color:#a6262c; }
-.import-error-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.import-error-heading button { border:0; padding:0; background:transparent; color:var(--blue); cursor:pointer; font-size:13px; }
-.import-errors ul { margin:7px 0 0; padding-left:20px; line-height:1.7; }
-.import-errors > small { display:block; margin-top:6px; color:#8e4548; }
-.import-preview { margin-top:16px; border:1px solid #d9dee2; }
-.preview-summary { min-height:42px; display:flex; align-items:center; justify-content:space-between; padding:0 13px; background:#f6f8f9; }
-.preview-summary span { color:#74818a; }
-.import-preview table { width:100%; border-collapse:collapse; table-layout:fixed; }
-.import-preview th,.import-preview td { height:34px; padding:5px 10px; border-top:1px solid #e5e9ec; text-align:left; }
-.import-preview th { color:#5b6872; font-weight:400; }
-.mode-tag { display:inline-block; padding:2px 8px; color:#1677d2; background:#eaf5ff; }.mode-tag.overwrite { color:#ba6b12; background:#fff3e3; }
-.valid-status { color:#1b8c5a; }.invalid-status { color:#d63940; }
+.template-download-tip { padding:0 0 12px; }.template-download-tip a { color:var(--blue); text-decoration:none; }
 .modal-footer { min-height:62px; display:flex; align-items:center; justify-content:flex-end; gap:9px; padding:12px 22px; border-top:1px solid #e3e7ea; }
 .confirm-modal { width:420px; padding:28px; text-align:center; background:#fff; border-radius:3px; box-shadow:0 14px 46px rgb(0 0 0 / 22%); }
 .warning-icon { width:42px; height:42px; display:grid; place-items:center; margin:0 auto 12px; border-radius:50%; background:#fff1f0; color:#e14449; font-size:24px; font-weight:700; }

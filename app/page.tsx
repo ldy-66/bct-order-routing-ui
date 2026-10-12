@@ -29,12 +29,6 @@ type OrderTemplate = {
   details: TemplateDetail[];
 };
 
-type ClientImportPreview = {
-  account: string;
-  mode: "新增" | "覆盖";
-  rules: Rule[];
-};
-
 const initialTemplates: OrderTemplate[] = [
   { name: "默认模板", note: "CMSI_SC999", details: [{ order: 1, channel: "Mock" }, { order: 2, channel: "QFII" }, { order: 3, channel: "QFII2" }, { order: 4, channel: "O32" }] },
   { name: "test1", note: "QFII", details: [{ order: 1, channel: "QFII" }] },
@@ -99,8 +93,6 @@ const emptyRule = (): Rule => ({
   template: "默认模板",
 });
 const clientRuleKey = (account: string, id: number) => `${account}::${id}`;
-const splitImportValues = (value: string) => value.split(/[,，、|;；]/).map((item) => item.trim()).filter(Boolean);
-
 function Chevron({ open }: { open: boolean }) {
   return <span className="square-toggle">{open ? "−" : "+"}</span>;
 }
@@ -242,8 +234,7 @@ export default function Home() {
   const [showClientImport, setShowClientImport] = useState(false);
   const [showClientDeleteConfirm, setShowClientDeleteConfirm] = useState(false);
   const [clientImportFileName, setClientImportFileName] = useState("");
-  const [clientImportPreview, setClientImportPreview] = useState<ClientImportPreview[]>([]);
-  const [clientImportErrors, setClientImportErrors] = useState<string[]>([]);
+  const [clientImportBusy, setClientImportBusy] = useState(false);
   const [toast, setToast] = useState("");
 
   const visibleAccounts = useMemo(() => queryAccount ? accounts.filter((account) => account.name === queryAccount) : accounts, [accounts, queryAccount]);
@@ -262,8 +253,7 @@ export default function Home() {
   };
   const resetClientImport = () => {
     setClientImportFileName("");
-    setClientImportPreview([]);
-    setClientImportErrors([]);
+    setClientImportBusy(false);
   };
   const closeClientImport = () => {
     setShowClientImport(false);
@@ -276,24 +266,23 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "客户配置导入校验失败.txt";
+    anchor.download = "客户配置导入失败.txt";
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
   const reportClientImportErrors = (errors: string[]) => {
-    setClientImportErrors(errors);
     downloadClientImportErrors(errors);
-    notify("数据存在问题，已下载 TXT 错误详情");
+    notify("导入失败，已下载报错文件");
   };
-  const parseClientImportFile = async (file: File) => {
+  const importClientFile = async (file: File) => {
     setClientImportFileName(file.name);
-    setClientImportPreview([]);
-    setClientImportErrors([]);
+    setClientImportBusy(true);
     try {
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-      const sheetName = workbook.SheetNames.includes("客户模板配置批量导入") ? "客户模板配置批量导入" : workbook.SheetNames[0];
+      const sheetName = workbook.SheetNames.includes("客户配置导入") ? "客户配置导入" : workbook.SheetNames[0];
+      if (!sheetName || !workbook.Sheets[sheetName]) throw new Error("empty workbook");
       const rows = XLSX.utils.sheet_to_json<(string | number)[]>(workbook.Sheets[sheetName], {
         header: 1,
         defval: "",
@@ -302,102 +291,27 @@ export default function Home() {
       const normalize = (value: string | number) => String(value).replace(/\*/g, "").trim();
       const headerRowIndex = rows.findIndex((row) => row.some((cell) => normalize(cell) === "交易账户"));
       if (headerRowIndex < 0) {
-        reportClientImportErrors(["文件：未找到标准表头，请使用页面提供的客户配置 Excel 模板。"]);
+        reportClientImportErrors(["文件格式错误：未找到标准表头。"]);
         return;
       }
       const headers = rows[headerRowIndex].map(normalize);
-      const indexes = {
-        account: headers.indexOf("交易账户"),
-        business: headers.indexOf("业务类型"),
-        contract: headers.indexOf("合约类型"),
-        exchanges: headers.indexOf("交易所"),
-        products: headers.indexOf("资产品种"),
-        direction: headers.indexOf("交易方向"),
-        template: headers.indexOf("报单排序模板"),
-        mode: headers.indexOf("导入方式"),
-      };
-      if (Object.values(indexes).some((index) => index < 0)) {
-        reportClientImportErrors(["文件：表头不完整，必须包含交易账户、业务类型、合约类型、交易所、资产品种、交易方向、报单排序模板和导入方式。"]);
+      const requiredHeaders = ["交易账户", "业务类型", "合约类型", "交易所", "资产品种", "交易方向", "顺序名称"];
+      if (requiredHeaders.some((header) => !headers.includes(header))) {
+        reportClientImportErrors(["文件格式错误：表头与导入模板不一致。"]);
         return;
       }
-
-      const errors: string[] = [];
-      const grouped = new Map<string, ClientImportPreview>();
-      rows.slice(headerRowIndex + 1).forEach((row, rowOffset) => {
-        const excelRow = headerRowIndex + rowOffset + 2;
-        const account = normalize(row[indexes.account] ?? "");
-        const business = normalize(row[indexes.business] ?? "");
-        const contract = normalize(row[indexes.contract] ?? "");
-        const exchangeText = normalize(row[indexes.exchanges] ?? "");
-        const productText = normalize(row[indexes.products] ?? "");
-        const direction = normalize(row[indexes.direction] ?? "");
-        const template = normalize(row[indexes.template] ?? "");
-        const mode = normalize(row[indexes.mode] ?? "");
-        if (![account, business, contract, exchangeText, productText, direction, template, mode].some(Boolean)) return;
-        if (![account, business, contract, exchangeText, productText, direction, template, mode].every(Boolean)) {
-          errors.push(`第 ${excelRow} 行：所有字段均为必填项。`);
-          return;
-        }
-        if (!accounts.some((item) => item.name === account)) {
-          errors.push(`第 ${excelRow} 行：交易账户“${account}”不存在。`);
-          return;
-        }
-        if (!["买入", "卖出", "买开", "卖开", "买平", "卖平"].includes(direction)) {
-          errors.push(`第 ${excelRow} 行：交易方向只能填写“买入”“卖出”“买开”“卖开”“买平”或“卖平”。`);
-          return;
-        }
-        if (!orderTemplates.some((item) => item.name === template)) {
-          errors.push(`第 ${excelRow} 行：报单排序模板“${template}”不存在。`);
-          return;
-        }
-        if (mode !== "新增" && mode !== "覆盖") {
-          errors.push(`第 ${excelRow} 行：导入方式只能填写“新增”或“覆盖”。`);
-          return;
-        }
-        const existing = grouped.get(account);
-        if (existing && existing.mode !== mode) {
-          errors.push(`第 ${excelRow} 行：同一交易账户的导入方式必须一致。`);
-          return;
-        }
-        const rule: Rule = {
-          id: Date.now() + rowOffset + Math.floor(Math.random() * 1000),
-          business,
-          contract,
-          exchanges: splitImportValues(exchangeText),
-          products: splitImportValues(productText),
-          direction: direction as Direction,
-          template,
-        };
-        if (existing) existing.rules.push(rule);
-        else grouped.set(account, { account, mode: mode as "新增" | "覆盖", rules: [rule] });
-      });
-      const preview = [...grouped.values()];
-      setClientImportPreview(preview);
-      if (!preview.length && !errors.length) {
-        setClientImportErrors(["导入的文件内容为空。"]);
-        notify("导入的文件内容为空");
+      const hasData = rows.slice(headerRowIndex + 1).some((row) => row.some((cell) => normalize(cell) !== ""));
+      if (!hasData) {
+        reportClientImportErrors(["文件错误：导入内容为空。"]);
         return;
       }
-      if (errors.length) reportClientImportErrors(errors);
-      else setClientImportErrors([]);
+      closeClientImport();
+      notify("客户配置导入成功");
     } catch {
-      reportClientImportErrors(["文件：文件解析失败，请确认上传的是有效的 .xlsx 或 .xls 文件。"]);
+      reportClientImportErrors(["文件格式错误：无法读取上传文件。"]);
+    } finally {
+      setClientImportBusy(false);
     }
-  };
-  const confirmClientImport = () => {
-    if (clientImportErrors.length || !clientImportPreview.length) return;
-    setAccounts((current) => current.map((account) => {
-      const imported = clientImportPreview.find((item) => item.account === account.name);
-      if (!imported) return account;
-      return {
-        ...account,
-        rules: imported.mode === "覆盖" ? imported.rules : [...account.rules, ...imported.rules],
-      };
-    }));
-    setExpandedAccounts((current) => [...new Set([...current, ...clientImportPreview.map((item) => item.account)])]);
-    setSelectedClientRules([]);
-    closeClientImport();
-    notify("客户模板配置导入成功");
   };
   const toggleClientRule = (account: string, id: number) => {
     const key = clientRuleKey(account, id);
@@ -792,77 +706,31 @@ export default function Home() {
         <div className="modal-backdrop" role="presentation">
           <section className="import-modal client-import-modal" role="dialog" aria-modal="true" aria-labelledby="client-import-title">
             <div className="modal-header">
-              <div>
-                <h2 id="client-import-title">批量导入客户报单排序配置</h2>
-                <p>按交易账户批量新增或覆盖配置，上传后将先校验并预览。</p>
-              </div>
+              <h2 id="client-import-title">批量导入客户配置</h2>
               <button className="modal-close" aria-label="关闭客户配置批量导入" onClick={closeClientImport}>×</button>
             </div>
             <div className="modal-body">
-              <div className="import-steps">
-                <span className="active"><b>1</b> 上传文件</span>
-                <i />
-                <span className={clientImportPreview.length || clientImportErrors.length ? "active" : ""}><b>2</b> 数据校验</span>
-                <i />
-                <span><b>3</b> 确认配置</span>
+              <div className="template-download-tip">
+                <a href={`${publicBasePath}/客户报单排序模板批量导入模板.xlsx`} download>下载导入模板</a>
               </div>
               <label className="upload-zone">
                 <input
                   type="file"
                   accept=".xlsx,.xls"
                   aria-label="选择客户配置Excel文件"
+                  disabled={clientImportBusy}
                   onChange={(event) => {
                     const file = event.target.files?.[0];
-                    if (file) void parseClientImportFile(file);
+                    if (file) void importClientFile(file);
                   }}
                 />
                 <span className="upload-icon">⇧</span>
-                <strong>{clientImportFileName || "点击选择或拖入客户配置 Excel"}</strong>
-                <small>支持 .xlsx、.xls；交易方向按组合枚举填写；校验失败时自动下载 TXT 错误详情</small>
+                <strong>{clientImportBusy ? "正在导入…" : "上传文件"}</strong>
+                <small>{clientImportFileName || "支持 .xlsx、.xls"}</small>
               </label>
-              <div className="template-download-tip">
-                请先
-                <a href={`${publicBasePath}/客户报单排序模板批量导入模板.xlsx`} download>下载客户配置导入模板</a>
-                ，按说明页填写后上传。
-              </div>
-              {clientImportErrors.length > 0 && (
-                <div className="import-errors">
-                  <div className="import-error-heading">
-                    <strong>发现 {clientImportErrors.length} 个问题</strong>
-                    {clientImportErrors[0] !== "导入的文件内容为空。" && (
-                      <button type="button" onClick={() => downloadClientImportErrors(clientImportErrors)}>重新下载错误详情 TXT</button>
-                    )}
-                  </div>
-                  <ul>{clientImportErrors.slice(0, 10).map((error) => <li key={error}>{error}</li>)}</ul>
-                  {clientImportErrors.length > 10 && <small>其余 {clientImportErrors.length - 10} 个问题请查看下载的 TXT 文件。</small>}
-                </div>
-              )}
-              {clientImportPreview.length > 0 && (
-                <div className="import-preview">
-                  <div className="preview-summary">
-                    <strong>客户配置预览</strong>
-                    <span>{clientImportPreview.length} 个交易账户 · {clientImportPreview.reduce((total, item) => total + item.rules.length, 0)} 条配置</span>
-                  </div>
-                  <table>
-                    <thead><tr><th>交易账户</th><th>配置条数</th><th>导入方式</th><th>方向字段</th><th>状态</th></tr></thead>
-                    <tbody>
-                      {clientImportPreview.map((item) => (
-                        <tr key={item.account}>
-                          <td>{item.account}</td>
-                          <td>{item.rules.length}</td>
-                          <td><span className={`mode-tag ${item.mode === "覆盖" ? "overwrite" : ""}`}>{item.mode}</span></td>
-                          <td>交易方向</td>
-                          <td><span className={clientImportErrors.length ? "invalid-status" : "valid-status"}>{clientImportErrors.length ? "待修正" : "校验通过"}</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </div>
             <div className="modal-footer">
-              <button className="ghost" onClick={closeClientImport}>取消</button>
-              <button className="primary" disabled={Boolean(clientImportErrors.length) || !clientImportPreview.length} onClick={confirmClientImport}>确认配置</button>
+              <button className="ghost" onClick={closeClientImport}>关闭</button>
             </div>
           </section>
         </div>

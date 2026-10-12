@@ -53,11 +53,11 @@ test("keeps transaction direction as one combined dropdown field", async () => {
   assert.doesNotMatch(page, /className="offset-select"/);
   assert.doesNotMatch(page, /开平标志/);
   assert.match(page, /initialConfigTemplates/);
-  assert.match(page, /批量导入客户报单排序配置/);
-  assert.match(page, /下载客户配置导入模板/);
-  assert.match(page, /客户配置导入校验失败\.txt/);
+  assert.match(page, /批量导入客户配置/);
+  assert.match(page, /下载导入模板/);
+  assert.match(page, /客户配置导入失败\.txt/);
   assert.match(page, /text\/plain;charset=utf-8/);
-  assert.match(page, /重新下载错误详情 TXT/);
+  assert.doesNotMatch(page, /数据校验|确认配置|客户配置预览|重新下载错误详情/);
   assert.match(page, /NEXT_PUBLIC_BASE_PATH/);
   assert.match(page, /全选账户.*下所有配置/);
   assert.doesNotMatch(page, /clientDeleteMode|取消批量删除/);
